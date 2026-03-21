@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GooseYirl — Paul Walsh</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface-hover: #22263a;
+      --border: #2a2d3e;
+      --accent: #6c8fff;
+      --accent-dim: #3d5199;
+      --text: #e8eaf0;
+      --text-muted: #8b8fa8;
+      --green: #4caf82;
+      --radius: 12px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Header ── */
+    header {
+      padding: 80px 24px 60px;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, #141828 0%, var(--bg) 100%);
+    }
+
+    .avatar {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: var(--accent-dim);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      margin: 0 auto 24px;
+      border: 2px solid var(--border);
+    }
+
+    header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+    }
+
+    header h1 span {
+      color: var(--accent);
+    }
+
+    .tagline {
+      color: var(--text-muted);
+      font-size: 1rem;
+      margin-bottom: 20px;
+    }
+
+    .location {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 4px 14px;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    /* ── Main ── */
+    main {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 60px 24px;
+    }
+
+    .about {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px 32px;
+      margin-bottom: 56px;
+      font-size: 0.97rem;
+      color: var(--text-muted);
+      line-height: 1.75;
+    }
+
+    .about strong { color: var(--text); }
+
+    section h2 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      margin-bottom: 24px;
+    }
+
+    .projects {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      transition: border-color 0.2s, background 0.2s;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .card:hover {
+      border-color: var(--accent-dim);
+      background: var(--surface-hover);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .card-icon {
+      font-size: 1.3rem;
+    }
+
+    .card h3 {
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    .card p {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      flex: 1;
+    }
+
+    .card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 8px;
+    }
+
+    .badge {
+      font-size: 0.75rem;
+      padding: 3px 10px;
+      border-radius: 999px;
+      background: #1e2a1e;
+      color: var(--green);
+      border: 1px solid #2a4a2a;
+      font-weight: 500;
+    }
+
+    .badge.android { background: #1a2535; color: #6c8fff; border-color: #2a3a5a; }
+    .badge.web { background: #2a1e35; color: #b06cff; border-color: #3a2a5a; }
+
+    .card-link {
+      font-size: 0.82rem;
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      padding: 40px 24px;
+      border-top: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 0.82rem;
+    }
+
+    @media (max-width: 480px) {
+      header h1 { font-size: 1.5rem; }
+      .projects { grid-template-columns: 1fr; }
+      .about { padding: 20px; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="avatar">🪿</div>
+    <h1>Paul <span>Walsh</span></h1>
+    <p class="tagline">Software Engineer &amp; weekend app builder</p>
+    <span class="location">📍 Ireland</span>
+  </header>
+
+  <main>
+    <div class="about">
+      <strong>Hey there.</strong> I'm a software engineer based in Ireland. Outside of my day job I enjoy building small, focused apps — mostly things I'd actually want to use myself. A lot of them end up being fitness-related, which probably says something about how I spend my weekends. These are a few personal projects I've shipped or am working on. Nothing groundbreaking, just useful little tools built with care.
+    </div>
+
+    <section>
+      <h2>Projects</h2>
+      <div class="projects">
+
+        <div class="card">
+          <div class="card-header">
+            <span class="card-icon">🏋️</span>
+            <h3>Powerlifting Rules Quiz</h3>
+          </div>
+          <p>A quiz app to test your knowledge of the IPF Technical Rules Book. Great for powerlifters, coaches, and referees who want to brush up on the rules.</p>
+          <div class="card-footer">
+            <span class="badge android">Android</span>
+            <a class="card-link" href="https://github.com/gooseyirl/powerlifting-rules-quiz" target="_blank">View on GitHub →</a>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <span class="card-icon">🃏</span>
+            <h3>Gotch Bible</h3>
+          </div>
+          <p>The ultimate deck of cards workout app. Draw a card, do the exercise — simple, brutal, effective. Based on the classic Karl Gotch Bible training method.</p>
+          <div class="card-footer">
+            <span class="badge android">Android</span>
+            <a class="card-link" href="https://github.com/gooseyirl/gotch-bible-app" target="_blank">View on GitHub →</a>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <span class="card-icon">📊</span>
+            <h3>E1RM Calculator</h3>
+          </div>
+          <p>Calculate your estimated one-rep max using common strength formulas. A handy tool for tracking progress and planning training loads.</p>
+          <div class="card-footer">
+            <span class="badge android">Android</span>
+            <a class="card-link" href="https://github.com/gooseyirl/e1rm-calculator" target="_blank">View on GitHub →</a>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <span class="card-icon">🏗️</span>
+            <h3>Bar Loader</h3>
+          </div>
+          <p>A barbell loading calculator that tells you exactly which plates to put on the bar. Because mental maths between sets is overrated.</p>
+          <div class="card-footer">
+            <span class="badge android">Android</span>
+            <a class="card-link" href="https://github.com/gooseyirl/bar-loader" target="_blank">View on GitHub →</a>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <span class="card-icon">📝</span>
+            <h3>TrueCoach Companion</h3>
+          </div>
+          <p>A companion app to help fill in TrueCoach workout logs faster. Built to scratch a personal itch with the platform's logging workflow.</p>
+          <div class="card-footer">
+            <span class="badge android">Android</span>
+            <a class="card-link" href="https://github.com/gooseyirl/truecoachcompanion" target="_blank">View on GitHub →</a>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <span class="card-icon">🔍</span>
+            <h3>Open PL Checker</h3>
+          </div>
+          <p>Cross-references OpenPowerlifting data against LifitingCast meet entries. Useful for verifying athlete records and competition results.</p>
+          <div class="card-footer">
+            <span class="badge web">Web</span>
+            <a class="card-link" href="https://github.com/gooseyirl/open-pl-checker" target="_blank">View on GitHub →</a>
+          </div>
+        </div>
+
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>Built by Paul Walsh · <a href="https://github.com/gooseyirl" target="_blank">github.com/gooseyirl</a></p>
+  </footer>
+
+</body>
+</html>
