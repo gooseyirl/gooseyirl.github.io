@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MyLiftSquad — LiftingCast Import</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏋</text></svg>">
+<style>
+:root {
+  --bg: #0f1117;
+  --surface: #1a1d27;
+  --surface2: #20243a;
+  --border: #2a2d3e;
+  --accent: #6c8fff;
+  --accent-dim: rgba(108,143,255,0.12);
+  --text: #e8eaf0;
+  --text-muted: #8b8fa8;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --r: 12px;
+  --rs: 8px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{font-size:16px}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;line-height:1.5;min-height:100vh}
+.wrap{max-width:920px;margin:0 auto;padding:24px 16px 64px}
+header{text-align:center;padding:36px 0 40px}
+.logo{font-size:1.625rem;font-weight:700}
+.logo span{color:var(--accent)}
+header p{color:var(--text-muted);margin-top:6px;font-size:.9375rem}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:24px;margin-bottom:16px}
+.card-title{font-size:.6875rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:16px}
+label{display:block;font-size:.8125rem;color:var(--text-muted);margin-bottom:5px}
+input[type=url],input[type=text]{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:var(--rs);color:var(--text);padding:10px 14px;font-size:.9375rem;outline:none;transition:border-color .18s}
+input:focus{border-color:var(--accent)}
+.hint{font-size:.8rem;color:var(--text-muted);margin-top:5px}
+.fg{margin-bottom:16px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:11px 28px;border-radius:var(--rs);font-size:.9375rem;font-weight:600;border:none;cursor:pointer;transition:opacity .15s,transform .1s}
+.btn:active{transform:scale(.98)}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{opacity:.88}
+.btn-primary:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border)}
+.btn-block{width:100%}
+.meet-meta{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:4px}
+.meet-name{font-size:1.0625rem;font-weight:600}
+.chip{display:inline-block;background:var(--accent-dim);color:var(--accent);border-radius:20px;padding:2px 11px;font-size:.8rem;font-weight:500}
+.prog-wrap{margin-top:16px}
+.prog-bg{background:var(--border);border-radius:99px;height:5px;overflow:hidden}
+.prog-fill{background:var(--accent);height:100%;border-radius:99px;transition:width .25s}
+.prog-label{font-size:.8rem;color:var(--text-muted);margin-top:5px}
+.flight-section{margin-bottom:20px}
+.flight-header{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.flight-badge{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;background:var(--accent-dim);color:var(--accent);border-radius:7px;font-weight:700;font-size:.9rem;flex-shrink:0}
+.flight-title{font-weight:600}
+.flight-count{color:var(--text-muted);font-size:.85rem}
+.tbl-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+table{width:100%;border-collapse:collapse;font-size:.875rem}
+th{text-align:left;padding:9px 14px;color:var(--text-muted);font-size:.6875rem;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border);background:var(--surface2)}
+td{padding:10px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+.slug{font-family:ui-monospace,monospace;font-size:.8125rem;color:var(--accent)}
+.muted{color:var(--text-muted)}
+.badge{display:inline-block;border-radius:4px;padding:2px 7px;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.bh{background:rgba(34,197,94,.14);color:#22c55e}
+.bm{background:rgba(245,158,11,.14);color:#f59e0b}
+.bl{background:rgba(239,68,68,.14);color:#ef4444}
+.bn{background:var(--border);color:var(--text-muted)}
+.bp{background:var(--border);color:var(--text-muted);animation:pulse 1.4s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.sum-row{display:flex;flex-wrap:wrap;gap:20px;margin-bottom:20px}
+.sum-stat{display:flex;align-items:baseline;gap:6px}
+.sum-num{font-size:1.75rem;font-weight:700}
+.sum-label{color:var(--text-muted);font-size:.9rem}
+.c-green{color:var(--success)}
+.c-warn{color:var(--warning)}
+.code-box{background:var(--bg);border:2px solid var(--accent);border-radius:var(--r);padding:28px 24px;text-align:center;margin-bottom:12px}
+.code-val{font-size:2.75rem;font-weight:700;letter-spacing:.18em;color:var(--accent);font-family:ui-monospace,monospace}
+.code-hint{color:var(--text-muted);font-size:.875rem;margin-top:8px}
+.multi-codes{display:flex;flex-direction:column;gap:10px}
+.mc-item{background:var(--bg);border:1px solid var(--border);border-radius:var(--rs);padding:12px 16px;display:flex;align-items:center;justify-content:space-between}
+.mc-label{font-size:.875rem;color:var(--text-muted)}
+.mc-val{font-family:ui-monospace,monospace;font-size:1.25rem;font-weight:700;color:var(--accent);letter-spacing:.1em}
+.err-box{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:var(--rs);padding:14px 16px;color:#ef4444;font-size:.9rem;margin-bottom:14px}
+.loading{text-align:center;padding:56px 24px;color:var(--text-muted)}
+.spinner{display:inline-block;width:28px;height:28px;border:2.5px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .75s linear infinite;margin-bottom:14px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.actions{display:flex;gap:10px;align-items:center}
+@media(max-width:580px){
+  th:nth-child(3),td:nth-child(3){display:none}
+  .sum-num{font-size:1.4rem}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">My<span>Lift</span>Squad</div>
+    <p>Import flights from LiftingCast</p>
+  </header>
+  <div id="app"></div>
+</div>
+<script>
+var API = 'https://myliftsquad-web.gooseyirl.workers.dev';
+var BUNDLE_API = 'https://myliftsquad-api.gooseyirl.workers.dev';
+
+var st = {
+  phase: 'input',
+  lcUrl: '',
+  nameOverride: '',
+  meetId: null,
+  meet: null,
+  lifters: [],
+  resolved: [],
+  resolvedCount: 0,
+  bundleCodes: null,
+  genError: null,
+  error: null
+};
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function groupByFlight(lifters) {
+  var g = {};
+  for (var i = 0; i < lifters.length; i++) {
+    var f = lifters[i].flight || '?';
+    if (!g[f]) g[f] = [];
+    g[f].push({lifter: lifters[i], idx: i});
+  }
+  return g;
+}
+
+function buildTableRows(entries) {
+  var html = '';
+  for (var i = 0; i < entries.length; i++) {
+    var e = entries[i];
+    var lifter = e.lifter;
+    var r = st.resolved[e.idx];
+    html += '<tr><td>' + esc(lifter.name) + '</td>';
+    if (!r) {
+      html += '<td><span class="muted">—</span></td><td></td><td><span class="badge bp">Resolving…</span></td>';
+    } else if (r.oplSlug) {
+      html += '<td><span class="slug">' + esc(r.oplSlug) + '</span></td>';
+      html += '<td>' + (r.oplName && r.oplName !== lifter.name ? '<span class="muted">' + esc(r.oplName) + '</span>' : '') + '</td>';
+      var bclass = r.confidence === 'high' ? 'bh' : r.confidence === 'medium' ? 'bm' : 'bl';
+      html += '<td><span class="badge ' + bclass + '">' + r.confidence + '</span></td>';
+    } else {
+      html += '<td><span class="muted">—</span></td><td></td><td><span class="badge bn">None</span></td>';
+    }
+    html += '</tr>';
+  }
+  return html;
+}
+
+function buildFlightsHTML() {
+  var groups = groupByFlight(st.lifters);
+  var flights = Object.keys(groups).sort();
+  var html = '';
+  for (var fi = 0; fi < flights.length; fi++) {
+    var f = flights[fi];
+    var entries = groups[f];
+    html += '<div class="flight-section">';
+    html += '<div class="flight-header">';
+    html += '<span class="flight-badge">' + esc(f) + '</span>';
+    html += '<span class="flight-title">Flight ' + esc(f) + '</span>';
+    html += '<span class="flight-count">' + entries.length + ' athletes</span>';
+    html += '</div>';
+    html += '<div class="tbl-wrap"><table>';
+    html += '<thead><tr><th>Lifter</th><th>OPL Slug</th><th>OPL Name</th><th>Confidence</th></tr></thead>';
+    html += '<tbody>' + buildTableRows(entries) + '</tbody>';
+    html += '</table></div></div>';
+  }
+  return html;
+}
+
+function meetLabel() {
+  if (st.nameOverride) return st.nameOverride;
+  if (!st.meet) return '';
+  return st.meet.federation + ' - ' + st.meet.date;
+}
+
+function render() {
+  var app = document.getElementById('app');
+  if (!app) return;
+  var html = '';
+
+  if (st.phase === 'input') {
+    html = '<div class="card">' +
+      '<div class="card-title">LiftingCast Meet</div>' +
+      '<div class="fg"><label for="lcu">LiftingCast URL</label>' +
+      '<input type="url" id="lcu" placeholder="https://liftingcast.com/meets/…" value="' + esc(st.lcUrl) + '"></div>' +
+      '<div class="fg"><label for="nom">Competition name <span style="opacity:.5">(optional)</span></label>' +
+      '<input type="text" id="nom" placeholder="e.g. IrishPF 2026 June Open" value="' + esc(st.nameOverride) + '">' +
+      '<p class="hint">Squad names will be prefixed with this. Defaults to federation + date from LiftingCast.</p></div>' +
+      '<button class="btn btn-primary btn-block" onclick="doFetch()">Fetch Meet</button>' +
+      '</div>';
+
+  } else if (st.phase === 'fetching') {
+    html = '<div class="loading"><div class="spinner"></div><br>Fetching meet data from LiftingCast…</div>';
+
+  } else if (st.phase === 'resolving' || st.phase === 'done') {
+    var meet = st.meet;
+    html += '<div class="card">';
+    html += '<div class="meet-meta">';
+    html += '<span class="meet-name">' + esc(meet.name) + '</span>';
+    html += '<span class="chip">' + esc(meet.federation) + '</span>';
+    if (meet.date) html += '<span class="chip">' + esc(meet.date) + '</span>';
+    html += '</div>';
+    if (st.phase === 'resolving') {
+      var pct = st.lifters.length > 0 ? Math.round(st.resolvedCount / st.lifters.length * 100) : 0;
+      html += '<div class="prog-wrap">';
+      html += '<div class="prog-bg"><div class="prog-fill" style="width:' + pct + '%"></div></div>';
+      html += '<p class="prog-label">Resolving OpenPowerlifting slugs… ' + st.resolvedCount + ' / ' + st.lifters.length + '</p>';
+      html += '</div>';
+    } else {
+      html += '<p class="hint" style="margin-top:8px">Squad prefix: <strong>' + esc(meetLabel()) + '</strong></p>';
+    }
+    html += '</div>';
+
+    html += buildFlightsHTML();
+
+    if (st.phase === 'done') {
+      if (st.bundleCodes) {
+        html += '<div class="card">';
+        html += '<div class="card-title">Import Code' + (st.bundleCodes.length > 1 ? 's' : '') + '</div>';
+        if (st.bundleCodes.length === 1) {
+          html += '<div class="code-box"><div class="code-val">' + esc(st.bundleCodes[0].code) + '</div>';
+          html += '<p class="code-hint">Open MyLiftSquad &rarr; FAB &rarr; Import Squad &rarr; enter this code</p></div>';
+        } else {
+          html += '<div class="multi-codes">';
+          for (var ci = 0; ci < st.bundleCodes.length; ci++) {
+            var item = st.bundleCodes[ci];
+            html += '<div class="mc-item">';
+            html += '<span class="mc-label">Flights ' + esc(item.flights.join(', ')) + '</span>';
+            html += '<span class="mc-val">' + esc(item.code) + '</span>';
+            html += '</div>';
+          }
+          html += '</div>';
+        }
+        html += '<p class="hint" style="margin-top:12px;text-align:center">Codes expire after 30 days.</p>';
+        html += '</div>';
+        html += '<div class="actions"><button class="btn btn-secondary" onclick="doReset()">Import another meet</button></div>';
+      } else {
+        var matched = 0;
+        for (var ri = 0; ri < st.resolved.length; ri++) {
+          if (st.resolved[ri] && st.resolved[ri].oplSlug) matched++;
+        }
+        var unmatched = st.lifters.length - matched;
+        html += '<div class="card">';
+        html += '<div class="sum-row">';
+        html += '<div class="sum-stat"><span class="sum-num c-green">' + matched + '</span><span class="sum-label">matched</span></div>';
+        if (unmatched > 0) {
+          html += '<div class="sum-stat"><span class="sum-num c-warn">' + unmatched + '</span><span class="sum-label">without OPL slug</span></div>';
+        }
+        html += '</div>';
+        if (st.genError) html += '<div class="err-box">' + esc(st.genError) + '</div>';
+        html += '<button class="btn btn-primary btn-block" id="genbtn" onclick="doGenerate()">Generate Import Code</button>';
+        html += '</div>';
+      }
+    }
+
+  } else if (st.phase === 'error') {
+    html = '<div class="err-box">' + esc(st.error) + '</div>' +
+      '<button class="btn btn-secondary" onclick="doReset()">Try again</button>';
+  }
+
+  app.innerHTML = html;
+
+  if (st.phase === 'input') {
+    var ui = document.getElementById('lcu');
+    var ni = document.getElementById('nom');
+    if (ui) {
+      ui.addEventListener('input', function() { st.lcUrl = this.value; });
+      ui.addEventListener('keydown', function(e) { if (e.key === 'Enter') doFetch(); });
+    }
+    if (ni) ni.addEventListener('input', function() { st.nameOverride = this.value; });
+  }
+}
+
+function doReset() {
+  st.phase = 'input';
+  st.error = null;
+  st.genError = null;
+  st.bundleCodes = null;
+  render();
+}
+
+async function doFetch() {
+  var ui = document.getElementById('lcu');
+  var ni = document.getElementById('nom');
+  if (ui) st.lcUrl = ui.value.trim();
+  if (ni) st.nameOverride = ni.value.trim();
+  if (!st.lcUrl) { alert('Please enter a LiftingCast URL'); return; }
+
+  st.phase = 'fetching';
+  st.error = null;
+  st.genError = null;
+  st.bundleCodes = null;
+  render();
+
+  try {
+    var res = await fetch(API + '/api/meet?url=' + encodeURIComponent(st.lcUrl));
+    var data = await res.json();
+    if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+
+    st.meet = data.meet;
+    st.meetId = data.meetId;
+    st.lifters = data.lifters;
+    st.resolved = new Array(data.lifters.length).fill(null);
+    st.resolvedCount = 0;
+    st.phase = 'resolving';
+    render();
+
+    await doResolveAll();
+    st.phase = 'done';
+    render();
+  } catch (err) {
+    st.phase = 'error';
+    st.error = err.message || String(err);
+    render();
+  }
+}
+
+async function doResolveAll() {
+  var lifters = st.lifters;
+  var BATCH = 5;
+  for (var i = 0; i < lifters.length; i += BATCH) {
+    var batch = lifters.slice(i, Math.min(i + BATCH, lifters.length));
+    var baseIdx = i;
+    var promises = batch.map(function(lifter, j) {
+      var idx = baseIdx + j;
+      var url = API + '/api/resolve?name=' + encodeURIComponent(lifter.name) + '&gender=' + encodeURIComponent(lifter.gender);
+      return fetch(url)
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          var best = d.results && d.results[0];
+          return { idx: idx, oplName: best ? best.name : '', oplSlug: best ? best.slug : '', confidence: best ? best.confidence : 'none' };
+        })
+        .catch(function() {
+          return { idx: idx, oplName: '', oplSlug: '', confidence: 'none' };
+        });
+    });
+    var results = await Promise.all(promises);
+    for (var k = 0; k < results.length; k++) {
+      st.resolved[results[k].idx] = results[k];
+    }
+    st.resolvedCount = Math.min(i + BATCH, lifters.length);
+    render();
+  }
+}
+
+async function doGenerate() {
+  var btn = document.getElementById('genbtn');
+  if (btn) btn.disabled = true;
+  st.genError = null;
+
+  var label = meetLabel();
+  var flightMap = {};
+  for (var i = 0; i < st.lifters.length; i++) {
+    var lifter = st.lifters[i];
+    var r = st.resolved[i];
+    var f = lifter.flight || '?';
+    if (!flightMap[f]) flightMap[f] = [];
+    var athlete = { name: lifter.name };
+    if (r && r.oplSlug) athlete.slug = r.oplSlug;
+    flightMap[f].push(athlete);
+  }
+
+  var flights = Object.keys(flightMap).sort();
+  var MAX = 10;
+  var bundles = [];
+  for (var b = 0; b < flights.length; b += MAX) {
+    var chunk = flights.slice(b, b + MAX);
+    var squads = chunk.map(function(fl) {
+      return { name: label + ' - Flight ' + fl, athletes: flightMap[fl] };
+    });
+    bundles.push({ flights: chunk, squads: squads });
+  }
+
+  try {
+    var codes = [];
+    for (var bi = 0; bi < bundles.length; bi++) {
+      var bundle = bundles[bi];
+      var res = await fetch(BUNDLE_API + '/bundles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ squads: bundle.squads })
+      });
+      var data = await res.json();
+      if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+      codes.push({ code: data.code, flights: bundle.flights });
+    }
+    st.bundleCodes = codes;
+    render();
+  } catch (err) {
+    st.genError = err.message || String(err);
+    if (btn) btn.disabled = false;
+    render();
+  }
+}
+
+render();
+</script>
+</body>
+</html>
