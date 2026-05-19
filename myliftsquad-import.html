@@ -112,6 +112,8 @@ tr:last-child td{border-bottom:none}
 .spinner{display:inline-block;width:28px;height:28px;border:2.5px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .75s linear infinite;margin-bottom:14px}
 @keyframes spin{to{transform:rotate(360deg)}}
 .actions{display:flex;gap:10px;align-items:center}
+.btn-back{background:none;border:none;color:var(--text-muted);font-size:.9rem;cursor:pointer;padding:0;display:inline-flex;align-items:center;gap:5px}
+.btn-back:hover{color:var(--text)}
 @media(max-width:580px){
   .hide-sm{display:none}
   .sum-num{font-size:1.4rem}
@@ -358,6 +360,7 @@ function render() {
 
   } else if (st.phase === 'resolving' || st.phase === 'done') {
     var meet = st.meet;
+    html += '<div style="margin-bottom:12px"><button class="btn-back" onclick="doReset()">&#8592; Back</button></div>';
     html += '<div class="card">';
     html += '<div class="meet-meta">';
     html += '<span class="meet-name">' + esc(meet.name) + '</span>';
