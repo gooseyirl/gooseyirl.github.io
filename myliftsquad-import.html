@@ -76,6 +76,9 @@ tr:last-child td{border-bottom:none}
 .btn-sm-primary{background:var(--accent);color:#fff}
 .btn-sm-ghost{background:var(--surface2);color:var(--text-muted);border:1px solid var(--border)}
 .lookup-err{color:var(--danger);font-size:.8rem;margin-top:4px}
+.th-sort{cursor:pointer;user-select:none}
+.th-sort:hover{color:var(--text)}
+.th-active{color:var(--accent) !important}
 .badge{display:inline-block;border-radius:4px;padding:2px 7px;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
 .bh{background:rgba(34,197,94,.14);color:#22c55e}
 .bm{background:rgba(245,158,11,.14);color:#f59e0b}
@@ -131,6 +134,8 @@ var st = {
   editingIdx: -1,
   editingUrl: '',
   lookupError: null,
+  sortCol: null,
+  sortDir: 'asc',
   bundleCodes: null,
   genError: null,
   error: null
@@ -188,6 +193,44 @@ function buildTableRows(entries) {
   return html;
 }
 
+function parseWc(s) {
+  if (!s) return Infinity;
+  var n = parseFloat(s);
+  return isNaN(n) ? Infinity : n;
+}
+
+function setSort(col) {
+  if (st.sortCol === col) {
+    st.sortDir = st.sortDir === 'asc' ? 'desc' : 'asc';
+  } else {
+    st.sortCol = col;
+    st.sortDir = 'asc';
+  }
+  render();
+}
+
+function sortEntries(entries) {
+  if (!st.sortCol) return entries;
+  var dir = st.sortDir === 'asc' ? 1 : -1;
+  return entries.slice().sort(function(a, b) {
+    if (st.sortCol === 'name') {
+      return dir * a.lifter.name.localeCompare(b.lifter.name);
+    }
+    if (st.sortCol === 'class') {
+      var wa = parseWc(a.lifter.weightClass), wb = parseWc(b.lifter.weightClass);
+      if (wa !== wb) return dir * (wa - wb);
+      return a.lifter.name.localeCompare(b.lifter.name);
+    }
+    return 0;
+  });
+}
+
+function thSort(label, col) {
+  var active = st.sortCol === col;
+  var arrow = active ? (st.sortDir === 'asc' ? ' &#8593;' : ' &#8595;') : '';
+  return '<th class="th-sort' + (active ? ' th-active' : '') + '" onclick="setSort(\'' + col + '\')">' + label + arrow + '</th>';
+}
+
 function buildFlightsHTML() {
   var groups = groupByFlight(st.lifters);
   var flights = Object.keys(groups).sort();
@@ -202,8 +245,8 @@ function buildFlightsHTML() {
     html += '<span class="flight-count">' + entries.length + ' athletes</span>';
     html += '</div>';
     html += '<div class="tbl-wrap"><table>';
-    html += '<thead><tr><th>Lifter</th><th>LC Class</th><th>OPL Slug</th><th class="hide-sm">OPL Class</th><th class="hide-sm">OPL Total</th><th>Confidence</th></tr></thead>';
-    html += '<tbody>' + buildTableRows(entries) + '</tbody>';
+    html += '<thead><tr>' + thSort('Lifter','name') + thSort('Class','class') + '<th>OPL Slug</th><th class="hide-sm">OPL Class</th><th class="hide-sm">OPL Total</th><th>Confidence</th></tr></thead>';
+    html += '<tbody>' + buildTableRows(sortEntries(entries)) + '</tbody>';
     html += '</table></div></div>';
   }
   return html;
