@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MyLiftSquad — LiftingCast Import</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏋</text></svg>">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <style>
 :root {
   --bg: #0f1117;
@@ -95,6 +96,7 @@ tr:last-child td{border-bottom:none}
 .code-box{background:var(--bg);border:2px solid var(--accent);border-radius:var(--r);padding:28px 24px;text-align:center;margin-bottom:12px}
 .code-val{font-size:2.75rem;font-weight:700;letter-spacing:.18em;color:var(--accent);font-family:ui-monospace,monospace}
 .code-hint{color:var(--text-muted);font-size:.875rem;margin-top:8px}
+.qr-wrap{display:flex;justify-content:center;margin:16px 0}
 .multi-codes{display:flex;flex-direction:column;gap:10px}
 .mc-item{background:var(--bg);border:1px solid var(--border);border-radius:var(--rs);padding:12px 16px;display:flex;align-items:center;justify-content:space-between}
 .mc-label{font-size:.875rem;color:var(--text-muted)}
@@ -309,6 +311,7 @@ function render() {
         html += '<div class="card-title">Import Code' + (st.bundleCodes.length > 1 ? 's' : '') + '</div>';
         if (st.bundleCodes.length === 1) {
           html += '<div class="code-box"><div class="code-val">' + esc(st.bundleCodes[0].code) + '</div>';
+          html += '<div id="qr-' + esc(st.bundleCodes[0].code) + '" class="qr-wrap"></div>';
           html += '<p class="code-hint">Open MyLiftSquad &rarr; FAB &rarr; Import Squad &rarr; enter this code</p></div>';
         } else {
           html += '<div class="multi-codes">';
@@ -317,6 +320,7 @@ function render() {
             html += '<div class="mc-item">';
             html += '<span class="mc-label">Flights ' + esc(item.flights.join(', ')) + '</span>';
             html += '<span class="mc-val">' + esc(item.code) + '</span>';
+            html += '<div id="qr-' + esc(item.code) + '" class="qr-wrap"></div>';
             html += '</div>';
           }
           html += '</div>';
@@ -349,6 +353,16 @@ function render() {
   }
 
   app.innerHTML = html;
+
+  if (st.bundleCodes && typeof QRCode !== 'undefined') {
+    for (var qi = 0; qi < st.bundleCodes.length; qi++) {
+      var qc = st.bundleCodes[qi].code;
+      var qel = document.getElementById('qr-' + qc);
+      if (qel && !qel.hasChildNodes()) {
+        new QRCode(qel, { text: qc, width: 180, height: 180, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
+      }
+    }
+  }
 
   if (st.phase === 'input') {
     var ui = document.getElementById('lcu');
