@@ -102,12 +102,32 @@ tr:last-child td{border-bottom:none}
 .mc-label{font-size:.875rem;color:var(--text-muted)}
 .mc-val{font-family:ui-monospace,monospace;font-size:1.25rem;font-weight:700;color:var(--accent);letter-spacing:.1em}
 .err-box{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:var(--rs);padding:14px 16px;color:#ef4444;font-size:.9rem;margin-bottom:14px}
-.hist-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)}
-.hist-item:last-child{border-bottom:none;padding-bottom:0}
-.hist-item:first-child{padding-top:0}
-.hist-name{font-weight:600;font-size:.9375rem}
-.hist-meta{color:var(--text-muted);font-size:.8rem;margin-top:2px}
-.hist-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.squad-card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:16px;display:flex;align-items:center;gap:12px;margin-bottom:8px;cursor:pointer;transition:border-color .15s}
+.squad-card:hover{border-color:var(--accent)}
+.squad-card:last-child{margin-bottom:0}
+.squad-card-body{flex:1;min-width:0}
+.squad-card-name{font-weight:600;font-size:.9375rem}
+.squad-card-meta{color:var(--text-muted);font-size:.8rem;margin-top:2px}
+.squad-card-code{color:var(--accent);font-family:ui-monospace,monospace;font-size:.8rem;margin-top:3px;letter-spacing:.05em;font-weight:600}
+.squad-card-right{display:flex;align-items:center;gap:4px;color:var(--accent);font-weight:700;font-size:1rem;flex-shrink:0}
+.squad-card-del{background:none;border:none;color:var(--text-muted);font-size:.9rem;cursor:pointer;padding:4px 6px;flex-shrink:0;line-height:1}
+.squad-card-del:hover{color:var(--danger)}
+.ath-card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:16px;display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.ath-card:last-child{margin-bottom:0}
+.ath-body{flex:1;min-width:0}
+.ath-name{font-weight:600;font-size:.9375rem}
+.ath-meta{font-size:.8rem;margin-top:3px}
+.ath-fed{color:var(--accent)}
+.ath-sep{color:var(--text-muted)}
+.ath-sec{color:var(--text-muted)}
+.ath-sbd{font-size:.8rem;margin-top:4px}
+.ath-sbd-l{color:var(--accent);font-weight:600}
+.ath-sbd-v{color:var(--text-muted)}
+.ath-total{background:var(--accent-dim);color:var(--accent);border-radius:20px;padding:4px 12px;font-size:.8125rem;font-weight:700;white-space:nowrap;flex-shrink:0}
+.btn-save{background:var(--accent);color:#fff;border:none;border-radius:var(--rs);padding:6px 16px;font-size:.875rem;font-weight:600;cursor:pointer;transition:opacity .15s;margin-left:auto;flex-shrink:0}
+.btn-save:hover{opacity:.85}
+.btn-edit{background:none;border:1px solid var(--border);color:var(--text-muted);border-radius:var(--rs);padding:5px 14px;font-size:.8125rem;font-weight:600;cursor:pointer;margin-left:auto;flex-shrink:0}
+.btn-edit:hover{border-color:var(--accent);color:var(--accent)}
 .loading{text-align:center;padding:56px 24px;color:var(--text-muted)}
 .spinner{display:inline-block;width:28px;height:28px;border:2.5px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .75s linear infinite;margin-bottom:14px}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -163,6 +183,7 @@ function loadFromHistory(meetId) {
   st.lookupError = null;
   st.genError = null;
   st.error = null;
+  st.saved = true;
   render();
 }
 
@@ -194,7 +215,8 @@ var st = {
   sortDir: 'asc',
   bundleCodes: null,
   genError: null,
-  error: null
+  error: null,
+  saved: false
 };
 
 function esc(s) {
@@ -319,6 +341,75 @@ function meetLabel() {
   return st.meet.federation + ' - ' + st.meet.date;
 }
 
+function formatKg(val) {
+  if (!val) return '';
+  var n = parseFloat(val);
+  if (isNaN(n) || n <= 0) return '';
+  return (n % 1 === 0 ? String(n) : String(n)) + ' kg';
+}
+
+function buildAthleteCard(lifter, r) {
+  var html = '<div class="ath-card">';
+  html += '<div class="ath-body">';
+  html += '<div class="ath-name">' + esc(lifter.name) + '</div>';
+  if (r && r.oplSlug) {
+    var wc = r.oplWeightClass || lifter.weightClass;
+    var parts = [];
+    if (r.oplFederation) parts.push('<span class="ath-fed">' + esc(r.oplFederation) + '</span>');
+    if (wc) parts.push('<span class="ath-sec">' + esc(wc) + '</span>');
+    if (r.oplEquipment) parts.push('<span class="ath-sec">' + esc(r.oplEquipment) + '</span>');
+    if (parts.length) html += '<div class="ath-meta">' + parts.join('<span class="ath-sep"> - </span>') + '</div>';
+    var sbd = [];
+    if (r.oplSquat && parseFloat(r.oplSquat) > 0) sbd.push(['S', formatKg(r.oplSquat)]);
+    if (r.oplBench && parseFloat(r.oplBench) > 0) sbd.push(['B', formatKg(r.oplBench)]);
+    if (r.oplDeadlift && parseFloat(r.oplDeadlift) > 0) sbd.push(['D', formatKg(r.oplDeadlift)]);
+    if (sbd.length) {
+      html += '<div class="ath-sbd">';
+      for (var si = 0; si < sbd.length; si++) {
+        if (si > 0) html += '  ';
+        html += '<span class="ath-sbd-l">' + sbd[si][0] + '</span><span class="ath-sbd-v"> ' + sbd[si][1] + '</span>';
+      }
+      html += '</div>';
+    }
+  } else {
+    var wc2 = lifter.weightClass;
+    if (wc2) html += '<div class="ath-meta"><span class="ath-sec">' + esc(wc2) + '</span></div>';
+  }
+  html += '</div>';
+  if (r && r.oplTotal && parseFloat(r.oplTotal) > 0) {
+    html += '<div class="ath-total">' + esc(formatKg(r.oplTotal)) + '</div>';
+  }
+  html += '</div>';
+  return html;
+}
+
+function buildSquadView() {
+  var groups = groupByFlight(st.lifters);
+  var flights = Object.keys(groups).sort();
+  var html = '';
+  for (var fi = 0; fi < flights.length; fi++) {
+    var f = flights[fi];
+    var entries = sortEntries(groups[f]);
+    html += '<div class="flight-section">';
+    html += '<div class="flight-header">';
+    html += '<span class="flight-badge">' + esc(f) + '</span>';
+    html += '<span class="flight-title">Flight ' + esc(f) + '</span>';
+    html += '<span class="flight-count">' + entries.length + ' athletes</span>';
+    html += '</div>';
+    for (var i = 0; i < entries.length; i++) {
+      html += buildAthleteCard(entries[i].lifter, st.resolved[entries[i].idx]);
+    }
+    html += '</div>';
+  }
+  return html;
+}
+
+function doSave() {
+  saveToHistory();
+  st.saved = true;
+  render();
+}
+
 function render() {
   var app = document.getElementById('app');
   if (!app) return;
@@ -337,20 +428,25 @@ function render() {
 
     var hist = getHistory();
     if (hist.length > 0) {
+      var PERSON_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>';
       html += '<div class="card"><div class="card-title">Saved Meets</div>';
       for (var hi = 0; hi < hist.length; hi++) {
         var h = hist[hi];
         var hname = h.nameOverride || (h.meet.federation + ' — ' + h.meet.date);
         var hflights = histFlightCount(h.lifters);
         var hdate = new Date(h.savedAt).toLocaleDateString(undefined, {day:'numeric',month:'short',year:'numeric'});
-        var hcode = h.bundleCodes ? ' · code ' + h.bundleCodes.map(function(c){return c.code;}).join(', ') : '';
-        html += '<div class="hist-item">';
-        html += '<div class="hist-info"><div class="hist-name">' + esc(hname) + '</div>';
-        html += '<div class="hist-meta">' + h.lifters.length + ' athletes · ' + hflights + ' flight' + (hflights !== 1 ? 's' : '') + esc(hcode) + ' · saved ' + hdate + '</div></div>';
-        html += '<div class="hist-actions">';
-        html += '<button class="btn btn-secondary" style="padding:7px 16px;font-size:.875rem" onclick="loadFromHistory(\'' + esc(h.meetId) + '\')">Load</button>';
-        html += '<button class="btn-add" onclick="deleteFromHistory(\'' + esc(h.meetId) + '\')" title="Remove">✕</button>';
-        html += '</div></div>';
+        html += '<div class="squad-card" onclick="loadFromHistory(\'' + esc(h.meetId) + '\')">';
+        html += '<div class="squad-card-body">';
+        html += '<div class="squad-card-name">' + esc(hname) + '</div>';
+        html += '<div class="squad-card-meta">' + hflights + ' flight' + (hflights !== 1 ? 's' : '') + ' · saved ' + hdate + '</div>';
+        if (h.bundleCodes) {
+          var codes = h.bundleCodes.map(function(cc){return cc.code;}).join(', ');
+          html += '<div class="squad-card-code">' + esc(codes) + '</div>';
+        }
+        html += '</div>';
+        html += '<div class="squad-card-right">' + PERSON_ICON + '<span>' + h.lifters.length + '</span></div>';
+        html += '<button class="squad-card-del" onclick="event.stopPropagation();deleteFromHistory(\'' + esc(h.meetId) + '\')" title="Remove">✕</button>';
+        html += '</div>';
       }
       html += '</div>';
     }
@@ -366,6 +462,13 @@ function render() {
     html += '<span class="meet-name">' + esc(meet.name) + '</span>';
     html += '<span class="chip">' + esc(meet.federation) + '</span>';
     if (meet.date) html += '<span class="chip">' + esc(meet.date) + '</span>';
+    if (st.phase === 'done') {
+      if (st.saved) {
+        html += '<button class="btn-edit" onclick="st.saved=false;render()">Edit</button>';
+      } else {
+        html += '<button class="btn-save" onclick="doSave()">Save</button>';
+      }
+    }
     html += '</div>';
     if (st.phase === 'resolving') {
       var pct = st.lifters.length > 0 ? Math.round(st.resolvedCount / st.lifters.length * 100) : 0;
@@ -378,7 +481,11 @@ function render() {
     }
     html += '</div>';
 
-    html += buildFlightsHTML();
+    if (st.saved) {
+      html += buildSquadView();
+    } else {
+      html += buildFlightsHTML();
+    }
 
     if (st.phase === 'done') {
       if (st.bundleCodes) {
@@ -402,8 +509,7 @@ function render() {
         }
         html += '<p class="hint" style="margin-top:12px;text-align:center">Codes expire after 30 days.</p>';
         html += '</div>';
-        html += '<div class="actions"><button class="btn btn-secondary" onclick="doReset()">Import another meet</button></div>';
-      } else {
+      } else if (!st.saved) {
         var matched = 0;
         for (var ri = 0; ri < st.resolved.length; ri++) {
           if (st.resolved[ri] && st.resolved[ri].oplSlug) matched++;
@@ -455,6 +561,7 @@ function doReset() {
   st.error = null;
   st.genError = null;
   st.bundleCodes = null;
+  st.saved = false;
   render();
 }
 
@@ -486,7 +593,7 @@ async function doFetch() {
 
     await doResolveAll();
     st.phase = 'done';
-    saveToHistory();
+    st.saved = false;
     render();
   } catch (err) {
     st.phase = 'error';
@@ -508,10 +615,10 @@ async function doResolveAll() {
         .then(function(r) { return r.json(); })
         .then(function(d) {
           var best = d.results && d.results[0];
-          return { idx: idx, oplName: best ? best.name : '', oplSlug: best ? best.slug : '', confidence: best ? best.confidence : 'none', oplWeightClass: best ? best.weightClass : '', oplTotal: best ? best.total : '' };
+          return { idx: idx, oplName: best ? best.name : '', oplSlug: best ? best.slug : '', confidence: best ? best.confidence : 'none', oplWeightClass: best ? best.weightClass : '', oplTotal: best ? best.total : '', oplSquat: best ? best.squat : '', oplBench: best ? best.bench : '', oplDeadlift: best ? best.deadlift : '', oplFederation: best ? best.federation : '', oplEquipment: best ? best.equipment : '' };
         })
         .catch(function() {
-          return { idx: idx, oplName: '', oplSlug: '', confidence: 'none', oplWeightClass: '', oplTotal: '' };
+          return { idx: idx, oplName: '', oplSlug: '', confidence: 'none', oplWeightClass: '', oplTotal: '', oplSquat: '', oplBench: '', oplDeadlift: '', oplFederation: '', oplEquipment: '' };
         });
     });
     var results = await Promise.all(promises);
@@ -571,11 +678,16 @@ async function doLookup(idx) {
       oplSlug: slug.toLowerCase(),
       confidence: 'manual',
       oplWeightClass: data.weightClass || '',
-      oplTotal: data.total || ''
+      oplTotal: data.total || '',
+      oplSquat: data.squat || '',
+      oplBench: data.bench || '',
+      oplDeadlift: data.deadlift || '',
+      oplFederation: data.federation || '',
+      oplEquipment: data.equipment || ''
     };
     st.editingIdx = -1;
     st.lookupError = null;
-    saveToHistory();
+    st.saved = false;
     render();
   } catch (err) {
     st.lookupError = err.message || String(err);
@@ -626,7 +738,7 @@ async function doGenerate() {
       codes.push({ code: data.code, flights: bundle.flights });
     }
     st.bundleCodes = codes;
-    saveToHistory();
+    st.saved = false;
     render();
   } catch (err) {
     st.genError = err.message || String(err);
