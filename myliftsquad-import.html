@@ -167,6 +167,18 @@ tr:last-child td{border-bottom:none}
 .meet-place{color:var(--text-muted);font-size:.75rem;font-weight:700;text-transform:uppercase}
 .ath-card-clickable{cursor:pointer;transition:border-color .15s}
 .ath-card-clickable:hover{border-color:var(--accent)}
+.lifter-list{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.lifter-list-header{display:flex;align-items:center;padding:8px 14px;background:var(--surface2);border-bottom:1px solid var(--border);gap:8px}
+.lifter-row{display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--border)}
+.lifter-row:last-child{border-bottom:none}
+.lifter-row-editing{align-items:flex-start}
+.lifter-col-main{flex:1;min-width:0}
+.lifter-col-right{flex-shrink:0;display:flex;align-items:center;gap:6px}
+.lifter-row-name{font-size:.875rem}
+.lifter-row-meta{font-size:.8rem;margin-top:3px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sort-btn{background:none;border:none;color:var(--text-muted);font-size:.6875rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;cursor:pointer;padding:0;line-height:1}
+.sort-btn:hover{color:var(--text)}
+.sort-btn-active{color:var(--accent) !important}
 </style>
 </head>
 <body>
@@ -273,42 +285,53 @@ function buildTableRows(entries) {
     var e = entries[i];
     var lifter = e.lifter;
     var r = st.resolved[e.idx];
-    html += '<tr><td>' + esc(lifter.name) + '</td>';
-    html += '<td>' + (lifter.weightClass ? '<span class="wclass">' + esc(lifter.weightClass) + '</span>' : '<span class="muted">—</span>') + '</td>';
+    var isEditing = st.editingIdx === e.idx;
 
-    if (!r) {
-      // Still resolving
-      html += '<td><span class="muted">—</span></td><td class="hide-sm"></td><td class="hide-sm"></td><td><span class="badge bp">Resolving…</span></td>';
-    } else if (st.editingIdx === e.idx) {
-      // Edit mode — same for matched and unmatched
-      var bclass = r.oplSlug ? (r.confidence === 'high' ? 'bh' : r.confidence === 'medium' ? 'bm' : r.confidence === 'manual' ? 'bmanual' : 'bl') : 'bn';
-      var blabel = r.oplSlug ? (r.confidence === 'manual' ? 'Manual' : r.confidence) : 'None';
-      html += '<td colspan="3" class="edit-cell">';
-      html += '<div class="edit-row">';
+    html += '<div class="lifter-row' + (isEditing ? ' lifter-row-editing' : '') + '">';
+    html += '<div class="lifter-col-main">';
+    html += '<div class="lifter-row-name">' + esc(lifter.name) + '</div>';
+
+    if (isEditing) {
+      var curBclass = r && r.oplSlug ? (r.confidence === 'high' ? 'bh' : r.confidence === 'medium' ? 'bm' : r.confidence === 'manual' ? 'bmanual' : 'bl') : 'bn';
+      var curBlabel = r && r.oplSlug ? (r.confidence === 'manual' ? 'Manual' : r.confidence) : 'None';
+      html += '<div class="edit-row" style="margin-top:6px">';
       html += '<input type="url" id="eurl-' + e.idx + '" class="edit-input" placeholder="https://www.openpowerlifting.org/u/…" value="' + esc(st.editingUrl) + '">';
       html += '<button id="elookup-' + e.idx + '" class="btn-sm btn-sm-primary" onclick="doLookup(' + e.idx + ')">Lookup</button>';
       html += '<button class="btn-sm btn-sm-ghost" onclick="cancelEdit()" title="Cancel">✕</button>';
       html += '</div>';
       if (st.lookupError) html += '<p class="lookup-err">' + esc(st.lookupError) + '</p>';
-      html += '</td>';
-      html += '<td><span class="badge ' + bclass + '">' + blabel + '</span></td>';
+      html += '</div>';
+      html += '<div class="lifter-col-right"><span class="badge ' + curBclass + '">' + curBlabel + '</span></div>';
+    } else if (!r) {
+      html += '<div class="lifter-row-meta">';
+      if (lifter.weightClass) html += '<span class="wclass">' + esc(lifter.weightClass) + '</span>';
+      html += '</div>';
+      html += '</div>';
+      html += '<div class="lifter-col-right"><span class="badge bp">Resolving…</span></div>';
     } else if (r.oplSlug) {
-      // Matched
-      html += '<td><a class="slug" href="https://www.openpowerlifting.org/u/' + esc(r.oplSlug) + '" target="_blank" rel="noopener">' + esc(r.oplSlug) + '</a></td>';
-      html += '<td class="hide-sm">' + (r.oplWeightClass ? '<span class="wclass">' + esc(r.oplWeightClass) + '</span>' : '<span class="muted">—</span>') + '</td>';
-      html += '<td class="hide-sm">' + (r.oplTotal ? '<span class="total">' + esc(r.oplTotal) + '</span>' : '<span class="muted">—</span>') + '</td>';
+      html += '<div class="lifter-row-meta">';
+      if (lifter.weightClass) html += '<span class="wclass">' + esc(lifter.weightClass) + '</span><span class="muted"> → </span>';
+      html += '<a class="slug" href="https://www.openpowerlifting.org/u/' + esc(r.oplSlug) + '" target="_blank" rel="noopener">' + esc(r.oplSlug) + '</a>';
+      if (r.oplWeightClass) html += '<span class="muted hide-sm"> · </span><span class="wclass hide-sm">' + esc(r.oplWeightClass) + '</span>';
+      if (r.oplTotal) html += '<span class="muted hide-sm"> · </span><span class="total hide-sm">' + esc(r.oplTotal) + '</span>';
+      html += '</div>';
+      html += '</div>';
       var bclass2 = r.confidence === 'high' ? 'bh' : r.confidence === 'medium' ? 'bm' : r.confidence === 'manual' ? 'bmanual' : 'bl';
       var blabel2 = r.confidence === 'manual' ? 'Manual' : r.confidence;
-      html += '<td><span class="badge ' + bclass2 + '">' + blabel2 + '</span><button class="btn-add" onclick="startEdit(' + e.idx + ')" title="Change match">✎</button></td>';
+      html += '<div class="lifter-col-right"><span class="badge ' + bclass2 + '">' + blabel2 + '</span><button class="btn-add" onclick="startEdit(' + e.idx + ')" title="Change match">✎</button></div>';
     } else {
-      // No match
-      html += '<td><span class="muted">—</span></td><td class="hide-sm"></td><td class="hide-sm"></td>';
-      html += '<td><span class="badge bn">None</span><button class="btn-add" onclick="startEdit(' + e.idx + ')">+ Add</button></td>';
+      html += '<div class="lifter-row-meta">';
+      if (lifter.weightClass) html += '<span class="wclass">' + esc(lifter.weightClass) + '</span>';
+      html += '</div>';
+      html += '</div>';
+      html += '<div class="lifter-col-right"><span class="badge bn">None</span><button class="btn-add" onclick="startEdit(' + e.idx + ')">+ Add</button></div>';
     }
-    html += '</tr>';
+
+    html += '</div>';
   }
   return html;
 }
+
 
 function parseWc(s) {
   if (!s) return Infinity;
@@ -345,7 +368,7 @@ function sortEntries(entries) {
 function thSort(label, col) {
   var active = st.sortCol === col;
   var arrow = active ? (st.sortDir === 'asc' ? ' &#8593;' : ' &#8595;') : '';
-  return '<th class="th-sort' + (active ? ' th-active' : '') + '" onclick="setSort(\'' + col + '\')">' + label + arrow + '</th>';
+  return '<button class="sort-btn' + (active ? ' sort-btn-active' : '') + '" onclick="setSort(\'' + col + '\')">' + label + arrow + '</button>';
 }
 
 function buildFlightsHTML() {
@@ -361,13 +384,17 @@ function buildFlightsHTML() {
     html += '<span class="flight-title">Flight ' + esc(f) + '</span>';
     html += '<span class="flight-count">' + entries.length + ' athletes</span>';
     html += '</div>';
-    html += '<div class="tbl-wrap"><table>';
-    html += '<thead><tr>' + thSort('Lifter','name') + thSort('Class','class') + '<th>OPL Slug</th><th class="hide-sm">OPL Class</th><th class="hide-sm">OPL Total</th><th>Confidence</th></tr></thead>';
-    html += '<tbody>' + buildTableRows(sortEntries(entries)) + '</tbody>';
-    html += '</table></div></div>';
+    html += '<div class="lifter-list">';
+    html += '<div class="lifter-list-header">';
+    html += '<div class="lifter-col-main">' + thSort('Lifter', 'name') + '<span style="opacity:.3;margin:0 8px">·</span>' + thSort('Class', 'class') + '</div>';
+    html += '<div class="lifter-col-right" style="font-size:.6875rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted)">Confidence</div>';
+    html += '</div>';
+    html += buildTableRows(sortEntries(entries));
+    html += '</div></div>';
   }
   return html;
 }
+
 
 function meetLabel() {
   if (st.nameOverride) return st.nameOverride;
