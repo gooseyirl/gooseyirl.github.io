@@ -163,30 +163,35 @@ function buildTableRows(entries) {
     var r = st.resolved[e.idx];
     html += '<tr><td>' + esc(lifter.name) + '</td>';
     html += '<td>' + (lifter.weightClass ? '<span class="wclass">' + esc(lifter.weightClass) + '</span>' : '<span class="muted">—</span>') + '</td>';
+
     if (!r) {
+      // Still resolving
       html += '<td><span class="muted">—</span></td><td class="hide-sm"></td><td class="hide-sm"></td><td><span class="badge bp">Resolving…</span></td>';
+    } else if (st.editingIdx === e.idx) {
+      // Edit mode — same for matched and unmatched
+      var bclass = r.oplSlug ? (r.confidence === 'high' ? 'bh' : r.confidence === 'medium' ? 'bm' : r.confidence === 'manual' ? 'bmanual' : 'bl') : 'bn';
+      var blabel = r.oplSlug ? (r.confidence === 'manual' ? 'Manual' : r.confidence) : 'None';
+      html += '<td colspan="3" class="edit-cell">';
+      html += '<div class="edit-row">';
+      html += '<input type="url" id="eurl-' + e.idx + '" class="edit-input" placeholder="https://www.openpowerlifting.org/u/…" value="' + esc(st.editingUrl) + '">';
+      html += '<button id="elookup-' + e.idx + '" class="btn-sm btn-sm-primary" onclick="doLookup(' + e.idx + ')">Lookup</button>';
+      html += '<button class="btn-sm btn-sm-ghost" onclick="cancelEdit()" title="Cancel">✕</button>';
+      html += '</div>';
+      if (st.lookupError) html += '<p class="lookup-err">' + esc(st.lookupError) + '</p>';
+      html += '</td>';
+      html += '<td><span class="badge ' + bclass + '">' + blabel + '</span></td>';
     } else if (r.oplSlug) {
+      // Matched
       html += '<td><a class="slug" href="https://www.openpowerlifting.org/u/' + esc(r.oplSlug) + '" target="_blank" rel="noopener">' + esc(r.oplSlug) + '</a></td>';
       html += '<td class="hide-sm">' + (r.oplWeightClass ? '<span class="wclass">' + esc(r.oplWeightClass) + '</span>' : '<span class="muted">—</span>') + '</td>';
       html += '<td class="hide-sm">' + (r.oplTotal ? '<span class="total">' + esc(r.oplTotal) + '</span>' : '<span class="muted">—</span>') + '</td>';
-      var bclass = r.confidence === 'high' ? 'bh' : r.confidence === 'medium' ? 'bm' : r.confidence === 'manual' ? 'bmanual' : 'bl';
-      var blabel = r.confidence === 'manual' ? 'Manual' : r.confidence;
-      html += '<td><span class="badge ' + bclass + '">' + blabel + '</span></td>';
+      var bclass2 = r.confidence === 'high' ? 'bh' : r.confidence === 'medium' ? 'bm' : r.confidence === 'manual' ? 'bmanual' : 'bl';
+      var blabel2 = r.confidence === 'manual' ? 'Manual' : r.confidence;
+      html += '<td><span class="badge ' + bclass2 + '">' + blabel2 + '</span><button class="btn-add" onclick="startEdit(' + e.idx + ')" title="Change match">✎</button></td>';
     } else {
-      if (st.editingIdx === e.idx) {
-        html += '<td colspan="3" class="edit-cell">';
-        html += '<div class="edit-row">';
-        html += '<input type="url" id="eurl-' + e.idx + '" class="edit-input" placeholder="https://www.openpowerlifting.org/u/…">';
-        html += '<button id="elookup-' + e.idx + '" class="btn-sm btn-sm-primary" onclick="doLookup(' + e.idx + ')">Lookup</button>';
-        html += '<button class="btn-sm btn-sm-ghost" onclick="cancelEdit()" title="Cancel">✕</button>';
-        html += '</div>';
-        if (st.lookupError) html += '<p class="lookup-err">' + esc(st.lookupError) + '</p>';
-        html += '</td>';
-        html += '<td><span class="badge bn">None</span></td>';
-      } else {
-        html += '<td><span class="muted">—</span></td><td class="hide-sm"></td><td class="hide-sm"></td>';
-        html += '<td><span class="badge bn">None</span><button class="btn-add" onclick="startEdit(' + e.idx + ')">+ Add</button></td>';
-      }
+      // No match
+      html += '<td><span class="muted">—</span></td><td class="hide-sm"></td><td class="hide-sm"></td>';
+      html += '<td><span class="badge bn">None</span><button class="btn-add" onclick="startEdit(' + e.idx + ')">+ Add</button></td>';
     }
     html += '</tr>';
   }
@@ -429,13 +434,14 @@ async function doResolveAll() {
 }
 
 function startEdit(idx) {
+  var r = st.resolved[idx];
   st.editingIdx = idx;
-  st.editingUrl = '';
+  st.editingUrl = (r && r.oplSlug) ? 'https://www.openpowerlifting.org/u/' + r.oplSlug : '';
   st.lookupError = null;
   render();
   setTimeout(function() {
     var el = document.getElementById('eurl-' + idx);
-    if (el) { el.focus(); }
+    if (el) { el.focus(); el.select(); }
   }, 0);
 }
 
