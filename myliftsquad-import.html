@@ -63,6 +63,8 @@ tr:last-child td{border-bottom:none}
 .slug{font-family:ui-monospace,monospace;font-size:.8125rem;color:var(--accent);text-decoration:none}
 .slug:hover{text-decoration:underline}
 .muted{color:var(--text-muted)}
+.wclass{font-family:ui-monospace,monospace;font-size:.8125rem;color:var(--text)}
+.total{font-family:ui-monospace,monospace;font-size:.8125rem;font-weight:600;color:var(--text)}
 .badge{display:inline-block;border-radius:4px;padding:2px 7px;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
 .bh{background:rgba(34,197,94,.14);color:#22c55e}
 .bm{background:rgba(245,158,11,.14);color:#f59e0b}
@@ -89,7 +91,7 @@ tr:last-child td{border-bottom:none}
 @keyframes spin{to{transform:rotate(360deg)}}
 .actions{display:flex;gap:10px;align-items:center}
 @media(max-width:580px){
-  th:nth-child(3),td:nth-child(3){display:none}
+  .hide-sm{display:none}
   .sum-num{font-size:1.4rem}
 }
 </style>
@@ -141,15 +143,17 @@ function buildTableRows(entries) {
     var lifter = e.lifter;
     var r = st.resolved[e.idx];
     html += '<tr><td>' + esc(lifter.name) + '</td>';
+    html += '<td>' + (lifter.weightClass ? '<span class="wclass">' + esc(lifter.weightClass) + '</span>' : '<span class="muted">—</span>') + '</td>';
     if (!r) {
-      html += '<td><span class="muted">—</span></td><td></td><td><span class="badge bp">Resolving…</span></td>';
+      html += '<td><span class="muted">—</span></td><td class="hide-sm"></td><td class="hide-sm"></td><td><span class="badge bp">Resolving…</span></td>';
     } else if (r.oplSlug) {
       html += '<td><a class="slug" href="https://www.openpowerlifting.org/u/' + esc(r.oplSlug) + '" target="_blank" rel="noopener">' + esc(r.oplSlug) + '</a></td>';
-      html += '<td>' + (r.oplName && r.oplName !== lifter.name ? '<span class="muted">' + esc(r.oplName) + '</span>' : '') + '</td>';
+      html += '<td class="hide-sm">' + (r.oplWeightClass ? '<span class="wclass">' + esc(r.oplWeightClass) + '</span>' : '<span class="muted">—</span>') + '</td>';
+      html += '<td class="hide-sm">' + (r.oplTotal ? '<span class="total">' + esc(r.oplTotal) + '</span>' : '<span class="muted">—</span>') + '</td>';
       var bclass = r.confidence === 'high' ? 'bh' : r.confidence === 'medium' ? 'bm' : 'bl';
       html += '<td><span class="badge ' + bclass + '">' + r.confidence + '</span></td>';
     } else {
-      html += '<td><span class="muted">—</span></td><td></td><td><span class="badge bn">None</span></td>';
+      html += '<td><span class="muted">—</span></td><td class="hide-sm"></td><td class="hide-sm"></td><td><span class="badge bn">None</span></td>';
     }
     html += '</tr>';
   }
@@ -170,7 +174,7 @@ function buildFlightsHTML() {
     html += '<span class="flight-count">' + entries.length + ' athletes</span>';
     html += '</div>';
     html += '<div class="tbl-wrap"><table>';
-    html += '<thead><tr><th>Lifter</th><th>OPL Slug</th><th>OPL Name</th><th>Confidence</th></tr></thead>';
+    html += '<thead><tr><th>Lifter</th><th>LC Class</th><th>OPL Slug</th><th class="hide-sm">OPL Class</th><th class="hide-sm">OPL Total</th><th>Confidence</th></tr></thead>';
     html += '<tbody>' + buildTableRows(entries) + '</tbody>';
     html += '</table></div></div>';
   }
@@ -338,10 +342,10 @@ async function doResolveAll() {
         .then(function(r) { return r.json(); })
         .then(function(d) {
           var best = d.results && d.results[0];
-          return { idx: idx, oplName: best ? best.name : '', oplSlug: best ? best.slug : '', confidence: best ? best.confidence : 'none' };
+          return { idx: idx, oplName: best ? best.name : '', oplSlug: best ? best.slug : '', confidence: best ? best.confidence : 'none', oplWeightClass: best ? best.weightClass : '', oplTotal: best ? best.total : '' };
         })
         .catch(function() {
-          return { idx: idx, oplName: '', oplSlug: '', confidence: 'none' };
+          return { idx: idx, oplName: '', oplSlug: '', confidence: 'none', oplWeightClass: '', oplTotal: '' };
         });
     });
     var results = await Promise.all(promises);
