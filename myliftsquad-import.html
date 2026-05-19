@@ -102,6 +102,12 @@ tr:last-child td{border-bottom:none}
 .mc-label{font-size:.875rem;color:var(--text-muted)}
 .mc-val{font-family:ui-monospace,monospace;font-size:1.25rem;font-weight:700;color:var(--accent);letter-spacing:.1em}
 .err-box{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:var(--rs);padding:14px 16px;color:#ef4444;font-size:.9rem;margin-bottom:14px}
+.hist-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)}
+.hist-item:last-child{border-bottom:none;padding-bottom:0}
+.hist-item:first-child{padding-top:0}
+.hist-name{font-weight:600;font-size:.9375rem}
+.hist-meta{color:var(--text-muted);font-size:.8rem;margin-top:2px}
+.hist-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
 .loading{text-align:center;padding:56px 24px;color:var(--text-muted)}
 .spinner{display:inline-block;width:28px;height:28px;border:2.5px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .75s linear infinite;margin-bottom:14px}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -123,6 +129,52 @@ tr:last-child td{border-bottom:none}
 <script>
 var API = 'https://myliftsquad-web.gooseyirl.workers.dev';
 var BUNDLE_API = 'https://myliftsquad-api.gooseyirl.workers.dev';
+var HISTORY_KEY = 'mls_history';
+var HISTORY_MAX = 5;
+
+function getHistory() {
+  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch(e) { return []; }
+}
+
+function saveToHistory() {
+  if (!st.meet || !st.meetId) return;
+  var history = getHistory().filter(function(h) { return h.meetId !== st.meetId; });
+  history.unshift({ savedAt: new Date().toISOString(), meetId: st.meetId, lcUrl: st.lcUrl, nameOverride: st.nameOverride, meet: st.meet, lifters: st.lifters, resolved: st.resolved, bundleCodes: st.bundleCodes });
+  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, HISTORY_MAX))); } catch(e) {}
+}
+
+function loadFromHistory(meetId) {
+  var history = getHistory();
+  var entry = null;
+  for (var i = 0; i < history.length; i++) { if (history[i].meetId === meetId) { entry = history[i]; break; } }
+  if (!entry) return;
+  st.phase = 'done';
+  st.meetId = entry.meetId;
+  st.lcUrl = entry.lcUrl;
+  st.nameOverride = entry.nameOverride || '';
+  st.meet = entry.meet;
+  st.lifters = entry.lifters;
+  st.resolved = entry.resolved;
+  st.resolvedCount = entry.resolved.filter(Boolean).length;
+  st.bundleCodes = entry.bundleCodes;
+  st.editingIdx = -1;
+  st.lookupError = null;
+  st.genError = null;
+  st.error = null;
+  render();
+}
+
+function deleteFromHistory(meetId) {
+  var history = getHistory().filter(function(h) { return h.meetId !== meetId; });
+  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(history)); } catch(e) {}
+  render();
+}
+
+function histFlightCount(lifters) {
+  var f = {};
+  for (var i = 0; i < lifters.length; i++) f[lifters[i].flight || '?'] = 1;
+  return Object.keys(f).length;
+}
 
 var st = {
   phase: 'input',
@@ -281,6 +333,26 @@ function render() {
       '<button class="btn btn-primary btn-block" onclick="doFetch()">Fetch Meet</button>' +
       '</div>';
 
+    var hist = getHistory();
+    if (hist.length > 0) {
+      html += '<div class="card"><div class="card-title">Saved Meets</div>';
+      for (var hi = 0; hi < hist.length; hi++) {
+        var h = hist[hi];
+        var hname = h.nameOverride || (h.meet.federation + ' — ' + h.meet.date);
+        var hflights = histFlightCount(h.lifters);
+        var hdate = new Date(h.savedAt).toLocaleDateString(undefined, {day:'numeric',month:'short',year:'numeric'});
+        var hcode = h.bundleCodes ? ' · code ' + h.bundleCodes.map(function(c){return c.code;}).join(', ') : '';
+        html += '<div class="hist-item">';
+        html += '<div class="hist-info"><div class="hist-name">' + esc(hname) + '</div>';
+        html += '<div class="hist-meta">' + h.lifters.length + ' athletes · ' + hflights + ' flight' + (hflights !== 1 ? 's' : '') + esc(hcode) + ' · saved ' + hdate + '</div></div>';
+        html += '<div class="hist-actions">';
+        html += '<button class="btn btn-secondary" style="padding:7px 16px;font-size:.875rem" onclick="loadFromHistory(\'' + esc(h.meetId) + '\')">Load</button>';
+        html += '<button class="btn-add" onclick="deleteFromHistory(\'' + esc(h.meetId) + '\')" title="Remove">✕</button>';
+        html += '</div></div>';
+      }
+      html += '</div>';
+    }
+
   } else if (st.phase === 'fetching') {
     html = '<div class="loading"><div class="spinner"></div><br>Fetching meet data from LiftingCast…</div>';
 
@@ -411,6 +483,7 @@ async function doFetch() {
 
     await doResolveAll();
     st.phase = 'done';
+    saveToHistory();
     render();
   } catch (err) {
     st.phase = 'error';
@@ -499,6 +572,7 @@ async function doLookup(idx) {
     };
     st.editingIdx = -1;
     st.lookupError = null;
+    saveToHistory();
     render();
   } catch (err) {
     st.lookupError = err.message || String(err);
@@ -549,6 +623,7 @@ async function doGenerate() {
       codes.push({ code: data.code, flights: bundle.flights });
     }
     st.bundleCodes = codes;
+    saveToHistory();
     render();
   } catch (err) {
     st.genError = err.message || String(err);
