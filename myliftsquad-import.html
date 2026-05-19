@@ -65,6 +65,17 @@ tr:last-child td{border-bottom:none}
 .muted{color:var(--text-muted)}
 .wclass{font-family:ui-monospace,monospace;font-size:.8125rem;color:var(--text)}
 .total{font-family:ui-monospace,monospace;font-size:.8125rem;font-weight:600;color:var(--text)}
+.bmanual{background:rgba(108,143,255,.14);color:var(--accent)}
+.btn-add{background:none;border:1px solid var(--border);border-radius:4px;color:var(--text-muted);font-size:.7rem;padding:2px 7px;cursor:pointer;margin-left:6px;vertical-align:middle;line-height:1.4}
+.btn-add:hover{border-color:var(--accent);color:var(--accent)}
+.edit-cell{padding:8px 14px !important}
+.edit-row{display:flex;gap:6px;align-items:center}
+.edit-input{flex:1;min-width:0;background:var(--bg);border:1px solid var(--accent);border-radius:var(--rs);color:var(--text);padding:6px 10px;font-size:.8125rem;outline:none}
+.btn-sm{padding:5px 12px;border-radius:var(--rs);font-size:.8125rem;font-weight:600;border:none;cursor:pointer;white-space:nowrap}
+.btn-sm:disabled{opacity:.45;cursor:not-allowed}
+.btn-sm-primary{background:var(--accent);color:#fff}
+.btn-sm-ghost{background:var(--surface2);color:var(--text-muted);border:1px solid var(--border)}
+.lookup-err{color:var(--danger);font-size:.8rem;margin-top:4px}
 .badge{display:inline-block;border-radius:4px;padding:2px 7px;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
 .bh{background:rgba(34,197,94,.14);color:#22c55e}
 .bm{background:rgba(245,158,11,.14);color:#f59e0b}
@@ -117,6 +128,9 @@ var st = {
   lifters: [],
   resolved: [],
   resolvedCount: 0,
+  editingIdx: -1,
+  editingUrl: '',
+  lookupError: null,
   bundleCodes: null,
   genError: null,
   error: null
@@ -150,10 +164,24 @@ function buildTableRows(entries) {
       html += '<td><a class="slug" href="https://www.openpowerlifting.org/u/' + esc(r.oplSlug) + '" target="_blank" rel="noopener">' + esc(r.oplSlug) + '</a></td>';
       html += '<td class="hide-sm">' + (r.oplWeightClass ? '<span class="wclass">' + esc(r.oplWeightClass) + '</span>' : '<span class="muted">—</span>') + '</td>';
       html += '<td class="hide-sm">' + (r.oplTotal ? '<span class="total">' + esc(r.oplTotal) + '</span>' : '<span class="muted">—</span>') + '</td>';
-      var bclass = r.confidence === 'high' ? 'bh' : r.confidence === 'medium' ? 'bm' : 'bl';
-      html += '<td><span class="badge ' + bclass + '">' + r.confidence + '</span></td>';
+      var bclass = r.confidence === 'high' ? 'bh' : r.confidence === 'medium' ? 'bm' : r.confidence === 'manual' ? 'bmanual' : 'bl';
+      var blabel = r.confidence === 'manual' ? 'Manual' : r.confidence;
+      html += '<td><span class="badge ' + bclass + '">' + blabel + '</span></td>';
     } else {
-      html += '<td><span class="muted">—</span></td><td class="hide-sm"></td><td class="hide-sm"></td><td><span class="badge bn">None</span></td>';
+      if (st.editingIdx === e.idx) {
+        html += '<td colspan="3" class="edit-cell">';
+        html += '<div class="edit-row">';
+        html += '<input type="url" id="eurl-' + e.idx + '" class="edit-input" placeholder="https://www.openpowerlifting.org/u/…">';
+        html += '<button id="elookup-' + e.idx + '" class="btn-sm btn-sm-primary" onclick="doLookup(' + e.idx + ')">Lookup</button>';
+        html += '<button class="btn-sm btn-sm-ghost" onclick="cancelEdit()" title="Cancel">✕</button>';
+        html += '</div>';
+        if (st.lookupError) html += '<p class="lookup-err">' + esc(st.lookupError) + '</p>';
+        html += '</td>';
+        html += '<td><span class="badge bn">None</span></td>';
+      } else {
+        html += '<td><span class="muted">—</span></td><td class="hide-sm"></td><td class="hide-sm"></td>';
+        html += '<td><span class="badge bn">None</span><button class="btn-add" onclick="startEdit(' + e.idx + ')">+ Add</button></td>';
+      }
     }
     html += '</tr>';
   }
@@ -353,6 +381,65 @@ async function doResolveAll() {
       st.resolved[results[k].idx] = results[k];
     }
     st.resolvedCount = Math.min(i + BATCH, lifters.length);
+    render();
+  }
+}
+
+function startEdit(idx) {
+  st.editingIdx = idx;
+  st.editingUrl = '';
+  st.lookupError = null;
+  render();
+  setTimeout(function() {
+    var el = document.getElementById('eurl-' + idx);
+    if (el) { el.focus(); }
+  }, 0);
+}
+
+function cancelEdit() {
+  st.editingIdx = -1;
+  st.lookupError = null;
+  render();
+}
+
+async function doLookup(idx) {
+  var input = document.getElementById('eurl-' + idx);
+  var raw = input ? input.value.trim() : '';
+  if (!raw) { st.lookupError = 'Paste an OPL URL or slug first'; render(); return; }
+
+  // Extract slug from URL or accept bare slug
+  var slug = raw;
+  var m = raw.match(/openpowerlifting\.org\/u\/([A-Za-z0-9]+)/i);
+  if (m) slug = m[1];
+  else if (!/^[A-Za-z0-9]+$/.test(raw)) {
+    st.lookupError = 'Paste a URL like https://www.openpowerlifting.org/u/johnsmith or just the slug';
+    render();
+    return;
+  }
+
+  var btn = document.getElementById('elookup-' + idx);
+  if (btn) btn.disabled = true;
+  st.lookupError = null;
+  render();
+
+  try {
+    var res = await fetch(API + '/api/lookup?slug=' + encodeURIComponent(slug.toLowerCase()));
+    var data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Not found');
+    st.resolved[idx] = {
+      idx: idx,
+      oplName: data.name || slug,
+      oplSlug: slug.toLowerCase(),
+      confidence: 'manual',
+      oplWeightClass: data.weightClass || '',
+      oplTotal: data.total || ''
+    };
+    st.editingIdx = -1;
+    st.lookupError = null;
+    render();
+  } catch (err) {
+    st.lookupError = err.message || String(err);
+    if (btn) btn.disabled = false;
     render();
   }
 }
