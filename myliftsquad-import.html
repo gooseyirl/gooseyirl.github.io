@@ -138,6 +138,35 @@ tr:last-child td{border-bottom:none}
   .hide-sm{display:none}
   .sum-num{font-size:1.4rem}
 }
+.panel-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;opacity:0;pointer-events:none;transition:opacity .25s}
+.panel-overlay.open{opacity:1;pointer-events:auto}
+.panel{position:fixed;background:var(--surface);z-index:101;overflow-y:auto;transition:transform .3s cubic-bezier(.32,1,.23,1);display:flex;flex-direction:column}
+@media(min-width:600px){
+  .panel{top:0;right:0;bottom:0;width:420px;border-left:1px solid var(--border);transform:translateX(105%)}
+  .panel.open{transform:translateX(0)}
+}
+@media(max-width:599px){
+  .panel{left:0;right:0;bottom:0;max-height:85vh;border-radius:16px 16px 0 0;border-top:1px solid var(--border);transform:translateY(100%)}
+  .panel.open{transform:translateY(0)}
+  .panel-handle{width:40px;height:4px;background:var(--border);border-radius:99px;margin:12px auto 4px}
+}
+.panel-header{display:flex;align-items:center;justify-content:space-between;padding:20px 20px 16px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface);z-index:1;gap:12px}
+.panel-title{font-size:1.0625rem;font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.panel-header-actions{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.panel-opl{color:var(--accent);font-size:.875rem;text-decoration:none;white-space:nowrap}
+.panel-opl:hover{text-decoration:underline}
+.panel-close{background:none;border:none;color:var(--text-muted);font-size:1.25rem;cursor:pointer;padding:2px 6px;line-height:1}
+.panel-close:hover{color:var(--text)}
+.panel-empty{padding:32px 20px;color:var(--text-muted);text-align:center}
+.meet-row{display:flex;align-items:flex-start;gap:12px;padding:14px 20px;border-bottom:1px solid var(--border)}
+.meet-row:last-child{border-bottom:none}
+.meet-row-body{flex:1;min-width:0}
+.meet-row-name{font-weight:600;font-size:.875rem}
+.meet-row-meta{color:var(--text-muted);font-size:.75rem;margin-top:2px}
+.meet-row-right{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0}
+.meet-place{color:var(--text-muted);font-size:.75rem;font-weight:700;text-transform:uppercase}
+.ath-card-clickable{cursor:pointer;transition:border-color .15s}
+.ath-card-clickable:hover{border-color:var(--accent)}
 </style>
 </head>
 <body>
@@ -216,7 +245,12 @@ var st = {
   bundleCodes: null,
   genError: null,
   error: null,
-  saved: false
+  saved: false,
+  panelSlug: null,
+  panelName: '',
+  panelData: null,
+  panelLoading: false,
+  panelError: null
 };
 
 function esc(s) {
@@ -341,6 +375,98 @@ function meetLabel() {
   return st.meet.federation + ' - ' + st.meet.date;
 }
 
+function formatPlace(p) {
+  if (!p) return '';
+  if (p === 'DQ' || p === 'NS' || p === 'DD' || p === 'G') return p;
+  var n = parseInt(p);
+  if (isNaN(n)) return p;
+  return n + (n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th');
+}
+
+function openPanel(slug, name) {
+  if (!slug) return;
+  st.panelSlug = slug;
+  st.panelName = name;
+  st.panelData = null;
+  st.panelLoading = true;
+  st.panelError = null;
+  document.getElementById('panel-overlay').classList.add('open');
+  document.getElementById('panel').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  renderPanel();
+  fetchPanelData(slug);
+}
+
+function closePanel() {
+  document.getElementById('panel-overlay').classList.remove('open');
+  document.getElementById('panel').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+async function fetchPanelData(slug) {
+  try {
+    var res = await fetch(API + '/api/lifter?slug=' + encodeURIComponent(slug));
+    var data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Not found');
+    st.panelData = data;
+    st.panelLoading = false;
+  } catch(err) {
+    st.panelLoading = false;
+    st.panelError = err.message || String(err);
+  }
+  renderPanel();
+}
+
+function renderPanel() {
+  var el = document.getElementById('panel-content');
+  if (!el) return;
+  var html = '<div class="panel-header">';
+  html += '<div class="panel-title">' + esc(st.panelName) + '</div>';
+  html += '<div class="panel-header-actions">';
+  if (st.panelSlug) html += '<a class="panel-opl" href="https://www.openpowerlifting.org/u/' + esc(st.panelSlug) + '" target="_blank" rel="noopener">OPL &#8599;</a>';
+  html += '<button class="panel-close" onclick="closePanel()">&#10005;</button>';
+  html += '</div></div>';
+  if (st.panelLoading) {
+    html += '<div class="loading"><div class="spinner"></div></div>';
+  } else if (st.panelError) {
+    html += '<div class="err-box" style="margin:16px">' + esc(st.panelError) + '</div>';
+  } else if (st.panelData) {
+    var meets = st.panelData.meets;
+    if (!meets || !meets.length) {
+      html += '<p class="panel-empty">No competition history found.</p>';
+    } else {
+      for (var mi = 0; mi < meets.length; mi++) {
+        var m = meets[mi];
+        html += '<div class="meet-row"><div class="meet-row-body">';
+        html += '<div class="meet-row-name">' + esc(m.meet || 'Unknown Meet') + '</div>';
+        var meta = [];
+        if (m.date) meta.push(m.date);
+        if (m.federation) meta.push(m.federation);
+        if (m.weightClass) meta.push(m.weightClass + ' kg');
+        if (m.equipment) meta.push(m.equipment);
+        if (meta.length) html += '<div class="meet-row-meta">' + esc(meta.join(' · ')) + '</div>';
+        var sbd = [];
+        if (m.squat && parseFloat(m.squat) > 0) sbd.push(['S', formatKg(m.squat)]);
+        if (m.bench && parseFloat(m.bench) > 0) sbd.push(['B', formatKg(m.bench)]);
+        if (m.deadlift && parseFloat(m.deadlift) > 0) sbd.push(['D', formatKg(m.deadlift)]);
+        if (sbd.length) {
+          html += '<div class="ath-sbd" style="margin-top:4px">';
+          for (var si = 0; si < sbd.length; si++) {
+            if (si > 0) html += '  ';
+            html += '<span class="ath-sbd-l">' + sbd[si][0] + '</span><span class="ath-sbd-v"> ' + sbd[si][1] + '</span>';
+          }
+          html += '</div>';
+        }
+        html += '</div><div class="meet-row-right">';
+        if (m.total && parseFloat(m.total) > 0) html += '<div class="ath-total">' + esc(formatKg(m.total)) + '</div>';
+        if (m.place) html += '<div class="meet-place">' + esc(formatPlace(m.place)) + '</div>';
+        html += '</div></div>';
+      }
+    }
+  }
+  el.innerHTML = html;
+}
+
 function formatKg(val) {
   if (!val) return '';
   var n = parseFloat(val);
@@ -349,7 +475,9 @@ function formatKg(val) {
 }
 
 function buildAthleteCard(lifter, r) {
-  var html = '<div class="ath-card">';
+  var clickable = r && r.oplSlug;
+  var html = '<div class="ath-card' + (clickable ? ' ath-card-clickable' : '') + '"' +
+    (clickable ? ' onclick="openPanel(\'' + esc(r.oplSlug) + '\',\'' + esc(lifter.name.replace(/'/g,'\\\'')) + '\')"' : '') + '>';
   html += '<div class="ath-body">';
   html += '<div class="ath-name">' + esc(lifter.name) + '</div>';
   if (r && r.oplSlug) {
@@ -749,5 +877,10 @@ async function doGenerate() {
 
 render();
 </script>
+<div id="panel-overlay" class="panel-overlay" onclick="closePanel()"></div>
+<div id="panel" class="panel">
+  <div class="panel-handle"></div>
+  <div id="panel-content"></div>
+</div>
 </body>
 </html>
