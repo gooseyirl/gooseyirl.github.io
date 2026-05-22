@@ -179,6 +179,13 @@ tr:last-child td{border-bottom:none}
 .sort-btn{background:none;border:none;color:var(--text-muted);font-size:.6875rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;cursor:pointer;padding:0;line-height:1}
 .sort-btn:hover{color:var(--text)}
 .sort-btn-active{color:var(--accent) !important}
+.btn-share{background:none;border:1px solid var(--accent);color:var(--accent);border-radius:var(--rs);padding:5px 14px;font-size:.8125rem;font-weight:600;cursor:pointer;flex-shrink:0}
+.btn-share:hover{background:var(--accent);color:#fff}
+.share-box{margin-top:12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--rs);padding:10px 14px;display:flex;align-items:center;gap:10px}
+.share-url{flex:1;font-family:ui-monospace,monospace;font-size:.75rem;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.btn-copy{background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);border-radius:var(--rs);padding:5px 12px;font-size:.8rem;cursor:pointer;white-space:nowrap;flex-shrink:0}
+.btn-copy:hover{border-color:var(--accent);color:var(--accent)}
+.btn-copy.copied{border-color:var(--success);color:var(--success)}
 </style>
 </head>
 <body>
@@ -262,7 +269,10 @@ var st = {
   panelName: '',
   panelData: null,
   panelLoading: false,
-  panelError: null
+  panelError: null,
+  shareCode: null,
+  shareLoading: false,
+  shareError: null
 };
 
 function esc(s) {
@@ -400,6 +410,74 @@ function meetLabel() {
   if (st.nameOverride) return st.nameOverride;
   if (!st.meet) return '';
   return st.meet.federation + ' - ' + st.meet.date;
+}
+
+async function doShare() {
+  st.shareLoading = true;
+  st.shareError = null;
+  st.shareCode = null;
+  render();
+  var state = {
+    meetId: st.meetId, lcUrl: st.lcUrl, nameOverride: st.nameOverride,
+    meet: st.meet, lifters: st.lifters, resolved: st.resolved, bundleCodes: st.bundleCodes
+  };
+  try {
+    var res = await fetch(API + '/api/share', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ state: state })
+    });
+    var data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Share failed');
+    st.shareCode = data.code;
+    st.shareLoading = false;
+    render();
+  } catch(err) {
+    st.shareError = err.message || String(err);
+    st.shareLoading = false;
+    render();
+  }
+}
+
+function copyShareUrl() {
+  var url = shareUrl();
+  if (!url) return;
+  navigator.clipboard.writeText(url).then(function() {
+    var btn = document.getElementById('copybtn');
+    if (btn) { btn.textContent = 'Copied!'; btn.classList.add('copied'); setTimeout(function(){ btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000); }
+  });
+}
+
+function shareUrl() {
+  if (!st.shareCode) return '';
+  return window.location.origin + window.location.pathname + '?share=' + st.shareCode;
+}
+
+async function loadFromShareCode(code) {
+  st.phase = 'fetching';
+  render();
+  try {
+    var res = await fetch(API + '/api/share?code=' + encodeURIComponent(code));
+    var data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Share link not found');
+    var s = data.state;
+    st.phase = 'done';
+    st.meetId = s.meetId || null;
+    st.lcUrl = s.lcUrl || '';
+    st.nameOverride = s.nameOverride || '';
+    st.meet = s.meet;
+    st.lifters = s.lifters;
+    st.resolved = s.resolved;
+    st.resolvedCount = (s.resolved || []).filter(Boolean).length;
+    st.bundleCodes = s.bundleCodes || null;
+    st.saved = true;
+    st.shareCode = code;
+    render();
+  } catch(err) {
+    st.phase = 'error';
+    st.error = err.message || String(err);
+    render();
+  }
 }
 
 function formatPlace(p) {
@@ -619,12 +697,23 @@ function render() {
     if (meet.date) html += '<span class="chip">' + esc(meet.date) + '</span>';
     if (st.phase === 'done') {
       if (st.saved) {
-        html += '<button class="btn-edit" onclick="st.saved=false;render()">Edit</button>';
+        html += '<button class="btn-share" onclick="doShare()" ' + (st.shareLoading ? 'disabled' : '') + '>' + (st.shareLoading ? 'Sharing…' : 'Share') + '</button>';
+        html += '<button class="btn-edit" onclick="st.saved=false;st.shareCode=null;render()">Edit</button>';
       } else {
         html += '<button class="btn-save" onclick="doSave()">Save</button>';
       }
     }
     html += '</div>';
+    if (st.saved && st.shareCode) {
+      var surl = shareUrl();
+      html += '<div class="share-box">';
+      html += '<span class="share-url">' + esc(surl) + '</span>';
+      html += '<button id="copybtn" class="btn-copy" onclick="copyShareUrl()">Copy</button>';
+      html += '</div>';
+    }
+    if (st.saved && st.shareError) {
+      html += '<div class="err-box" style="margin-top:10px">' + esc(st.shareError) + '</div>';
+    }
     if (st.phase === 'resolving') {
       var pct = st.lifters.length > 0 ? Math.round(st.resolvedCount / st.lifters.length * 100) : 0;
       html += '<div class="prog-wrap">';
@@ -902,7 +991,12 @@ async function doGenerate() {
   }
 }
 
-render();
+var _shareParam = new URLSearchParams(window.location.search).get('share');
+if (_shareParam) {
+  loadFromShareCode(_shareParam.trim().toUpperCase());
+} else {
+  render();
+}
 </script>
 <div id="panel-overlay" class="panel-overlay" onclick="closePanel()"></div>
 <div id="panel" class="panel">
