@@ -186,6 +186,9 @@ tr:last-child td{border-bottom:none}
 .btn-copy{background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);border-radius:var(--rs);padding:5px 12px;font-size:.8rem;cursor:pointer;white-space:nowrap;flex-shrink:0}
 .btn-copy:hover{border-color:var(--accent);color:var(--accent)}
 .btn-copy.copied{border-color:var(--success);color:var(--success)}
+.src-ctrl{display:inline-flex;background:var(--bg);border:1px solid var(--border);border-radius:var(--rs);overflow:hidden;margin-top:6px}
+.src-opt{padding:7px 14px;font-size:.875rem;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--text-muted);transition:background .15s,color .15s;line-height:1.4}
+.src-opt.active{background:var(--accent);color:#fff}
 </style>
 </head>
 <body>
@@ -201,6 +204,20 @@ var API = 'https://myliftsquad-web.gooseyirl.workers.dev';
 var BUNDLE_API = 'https://myliftsquad-api.gooseyirl.workers.dev';
 var HISTORY_KEY = 'mls_history';
 var HISTORY_MAX = 5;
+var oplSource = localStorage.getItem('mls_opl_source') || 'opl';
+
+function setOplSource(src) {
+  oplSource = src;
+  try { localStorage.setItem('mls_opl_source', src); } catch(e) {}
+  var oBtn = document.getElementById('src-opl');
+  var iBtn = document.getElementById('src-ipf');
+  if (oBtn) oBtn.classList.toggle('active', src === 'opl');
+  if (iBtn) iBtn.classList.toggle('active', src === 'ipf');
+}
+
+function oplProfileBase() {
+  return oplSource === 'ipf' ? 'https://www.openipf.org/u' : 'https://www.openpowerlifting.org/u';
+}
 
 function getHistory() {
   try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch(e) { return []; }
@@ -321,7 +338,7 @@ function buildTableRows(entries) {
     } else if (r.oplSlug) {
       html += '<div class="lifter-row-meta">';
       if (lifter.weightClass) html += '<span class="wclass">' + esc(lifter.weightClass) + '</span><span class="muted"> → </span>';
-      html += '<a class="slug" href="https://www.openpowerlifting.org/u/' + esc(r.oplSlug) + '" target="_blank" rel="noopener">' + esc(r.oplSlug) + '</a>';
+      html += '<a class="slug" href="' + oplProfileBase() + '/' + esc(r.oplSlug) + '" target="_blank" rel="noopener">' + esc(r.oplSlug) + '</a>';
       if (r.oplWeightClass) html += '<span class="muted hide-sm"> · </span><span class="wclass hide-sm">' + esc(r.oplWeightClass) + '</span>';
       if (r.oplTotal) html += '<span class="muted hide-sm"> · </span><span class="total hide-sm">' + esc(r.oplTotal) + '</span>';
       html += '</div>';
@@ -510,7 +527,7 @@ function closePanel() {
 
 async function fetchPanelData(slug) {
   try {
-    var res = await fetch(API + '/api/lifter?slug=' + encodeURIComponent(slug));
+    var res = await fetch(API + '/api/lifter?slug=' + encodeURIComponent(slug) + '&source=' + oplSource);
     var data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Not found');
     st.panelData = data;
@@ -528,7 +545,7 @@ function renderPanel() {
   var html = '<div class="panel-header">';
   html += '<div class="panel-title">' + esc(st.panelName) + '</div>';
   html += '<div class="panel-header-actions">';
-  if (st.panelSlug) html += '<a class="panel-opl" href="https://www.openpowerlifting.org/u/' + esc(st.panelSlug) + '" target="_blank" rel="noopener">OPL &#8599;</a>';
+  if (st.panelSlug) html += '<a class="panel-opl" href="' + oplProfileBase() + '/' + esc(st.panelSlug) + '" target="_blank" rel="noopener">OPL &#8599;</a>';
   html += '<button class="panel-close" onclick="closePanel()">&#10005;</button>';
   html += '</div></div>';
   if (st.panelLoading) {
@@ -656,6 +673,12 @@ function render() {
       '<div class="fg"><label for="nom">Competition name <span style="opacity:.5">(optional)</span></label>' +
       '<input type="text" id="nom" placeholder="e.g. IrishPF 2026 June Open" value="' + esc(st.nameOverride) + '">' +
       '<p class="hint">Squad names will be prefixed with this. Defaults to federation + date from LiftingCast.</p></div>' +
+      '<div class="fg"><label>Data Source</label>' +
+      '<div class="src-ctrl">' +
+      '<button class="src-opt' + (oplSource === 'opl' ? ' active' : '') + '" id="src-opl" onclick="setOplSource('opl')">OpenPowerlifting</button>' +
+      '<button class="src-opt' + (oplSource === 'ipf' ? ' active' : '') + '" id="src-ipf" onclick="setOplSource('ipf')">OpenIPF</button>' +
+      '</div>' +
+      '<p class="hint">OpenIPF only includes IPF-affiliated competitions.</p></div>' +
       '<button class="btn btn-primary btn-block" onclick="doFetch()">Fetch Meet</button>' +
       '</div>';
 
@@ -718,7 +741,7 @@ function render() {
       var pct = st.lifters.length > 0 ? Math.round(st.resolvedCount / st.lifters.length * 100) : 0;
       html += '<div class="prog-wrap">';
       html += '<div class="prog-bg"><div class="prog-fill" style="width:' + pct + '%"></div></div>';
-      html += '<p class="prog-label">Resolving OpenPowerlifting slugs… ' + st.resolvedCount + ' / ' + st.lifters.length + '</p>';
+      html += '<p class="prog-label">Resolving ' + (oplSource === 'ipf' ? 'OpenIPF' : 'OpenPowerlifting') + ' slugs… ' + st.resolvedCount + ' / ' + st.lifters.length + '</p>';
       html += '</div>';
     } else {
       html += '<p class="hint" style="margin-top:8px">Squad prefix: <strong>' + esc(meetLabel()) + '</strong></p>';
@@ -854,7 +877,7 @@ async function doResolveAll() {
     var baseIdx = i;
     var promises = batch.map(function(lifter, j) {
       var idx = baseIdx + j;
-      var url = API + '/api/resolve?name=' + encodeURIComponent(lifter.name) + '&gender=' + encodeURIComponent(lifter.gender);
+      var url = API + '/api/resolve?name=' + encodeURIComponent(lifter.name) + '&gender=' + encodeURIComponent(lifter.gender) + '&source=' + oplSource;
       return fetch(url)
         .then(function(r) { return r.json(); })
         .then(function(d) {
@@ -877,7 +900,7 @@ async function doResolveAll() {
 function startEdit(idx) {
   var r = st.resolved[idx];
   st.editingIdx = idx;
-  st.editingUrl = (r && r.oplSlug) ? 'https://www.openpowerlifting.org/u/' + r.oplSlug : '';
+  st.editingUrl = (r && r.oplSlug) ? oplProfileBase() + '/' + r.oplSlug : '';
   st.lookupError = null;
   render();
   setTimeout(function() {
@@ -899,10 +922,10 @@ async function doLookup(idx) {
 
   // Extract slug from URL or accept bare slug
   var slug = raw;
-  var m = raw.match(/openpowerlifting\.org\/u\/([A-Za-z0-9]+)/i);
+  var m = raw.match(/(?:openpowerlifting|openipf)\.org\/u\/([A-Za-z0-9]+)/i);
   if (m) slug = m[1];
   else if (!/^[A-Za-z0-9]+$/.test(raw)) {
-    st.lookupError = 'Paste a URL like https://www.openpowerlifting.org/u/johnsmith or just the slug';
+    st.lookupError = 'Paste a profile URL or just the slug';
     render();
     return;
   }
@@ -913,7 +936,7 @@ async function doLookup(idx) {
   render();
 
   try {
-    var res = await fetch(API + '/api/lookup?slug=' + encodeURIComponent(slug.toLowerCase()));
+    var res = await fetch(API + '/api/lookup?slug=' + encodeURIComponent(slug.toLowerCase()) + '&source=' + oplSource);
     var data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Not found');
     st.resolved[idx] = {
