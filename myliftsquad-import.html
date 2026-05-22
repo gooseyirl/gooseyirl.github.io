@@ -675,8 +675,8 @@ function render() {
       '<p class="hint">Squad names will be prefixed with this. Defaults to federation + date from LiftingCast.</p></div>' +
       '<div class="fg"><label>Data Source</label>' +
       '<div class="src-ctrl">' +
-      '<button class="src-opt' + (oplSource === 'opl' ? ' active' : '') + '" id="src-opl" onclick="setOplSource('opl')">OpenPowerlifting</button>' +
-      '<button class="src-opt' + (oplSource === 'ipf' ? ' active' : '') + '" id="src-ipf" onclick="setOplSource('ipf')">OpenIPF</button>' +
+      '<button class="src-opt' + (oplSource === 'opl' ? ' active' : '') + '" id="src-opl" data-src="opl" onclick="setOplSource(this.dataset.src)">OpenPowerlifting</button>' +
+      '<button class="src-opt' + (oplSource === 'ipf' ? ' active' : '') + '" id="src-ipf" data-src="ipf" onclick="setOplSource(this.dataset.src)">OpenIPF</button>' +
       '</div>' +
       '<p class="hint">OpenIPF only includes IPF-affiliated competitions.</p></div>' +
       '<button class="btn btn-primary btn-block" onclick="doFetch()">Fetch Meet</button>' +
