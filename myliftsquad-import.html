@@ -186,7 +186,7 @@ tr:last-child td{border-bottom:none}
 .btn-copy{background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);border-radius:var(--rs);padding:5px 12px;font-size:.8rem;cursor:pointer;white-space:nowrap;flex-shrink:0}
 .btn-copy:hover{border-color:var(--accent);color:var(--accent)}
 .btn-copy.copied{border-color:var(--success);color:var(--success)}
-.chip-ipf{background:rgba(34,197,94,.14);color:#22c55e}
+.chip-opl{background:rgba(251,54,64,.14);color:#fb3640}.chip-ipf{background:rgba(253,185,62,.16);color:#fdb93e}
 .src-ctrl{display:inline-flex;background:var(--bg);border:1px solid var(--border);border-radius:var(--rs);overflow:hidden;margin-top:6px}
 .src-opt{padding:7px 14px;font-size:.875rem;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--text-muted);transition:background .15s,color .15s;line-height:1.4}
 .src-opt.active{background:var(--accent);color:#fff}
@@ -719,7 +719,7 @@ function render() {
     html += '<span class="meet-name">' + esc(meet.name) + '</span>';
     html += '<span class="chip">' + esc(meet.federation) + '</span>';
     if (meet.date) html += '<span class="chip">' + esc(meet.date) + '</span>';
-    html += '<span class="chip' + (oplSource === 'ipf' ? ' chip-ipf' : '') + '">' + (oplSource === 'ipf' ? 'OpenIPF' : 'OpenPowerlifting') + '</span>';
+    html += '<span class="chip ' + (oplSource === 'ipf' ? 'chip-ipf' : 'chip-opl') + '">' + (oplSource === 'ipf' ? 'OpenIPF' : 'OpenPowerlifting') + '</span>';
     if (st.phase === 'done') {
       if (st.saved) {
         html += '<button class="btn-share" onclick="doShare()" ' + (st.shareLoading ? 'disabled' : '') + '>' + (st.shareLoading ? 'Sharing…' : 'Share') + '</button>';
