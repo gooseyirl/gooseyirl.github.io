@@ -186,9 +186,7 @@ tr:last-child td{border-bottom:none}
 .btn-copy{background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);border-radius:var(--rs);padding:5px 12px;font-size:.8rem;cursor:pointer;white-space:nowrap;flex-shrink:0}
 .btn-copy:hover{border-color:var(--accent);color:var(--accent)}
 .btn-copy.copied{border-color:var(--success);color:var(--success)}
-.src-bdg{display:inline-block;border-radius:3px;padding:1px 5px;font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;vertical-align:middle;margin-left:4px;flex-shrink:0}
-.src-bdg-opl{background:rgba(108,143,255,.18);color:var(--accent)}
-.src-bdg-ipf{background:rgba(34,197,94,.18);color:#22c55e}
+.chip-ipf{background:rgba(34,197,94,.14);color:#22c55e}
 .src-ctrl{display:inline-flex;background:var(--bg);border:1px solid var(--border);border-radius:var(--rs);overflow:hidden;margin-top:6px}
 .src-opt{padding:7px 14px;font-size:.875rem;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--text-muted);transition:background .15s,color .15s;line-height:1.4}
 .src-opt.active{background:var(--accent);color:#fff}
@@ -342,7 +340,6 @@ function buildTableRows(entries) {
       html += '<div class="lifter-row-meta">';
       if (lifter.weightClass) html += '<span class="wclass">' + esc(lifter.weightClass) + '</span><span class="muted"> → </span>';
       html += '<a class="slug" href="' + oplProfileBase() + '/' + esc(r.oplSlug) + '" target="_blank" rel="noopener">' + esc(r.oplSlug) + '</a>';
-      if (r.dataSource) { var sBdg = r.dataSource === 'ipf' ? 'src-bdg src-bdg-ipf' : 'src-bdg src-bdg-opl'; html += '<span class="' + sBdg + '">' + (r.dataSource === 'ipf' ? 'IPF' : 'OPL') + '</span>'; }
       if (r.oplWeightClass) html += '<span class="muted hide-sm"> · </span><span class="wclass hide-sm">' + esc(r.oplWeightClass) + '</span>';
       if (r.oplTotal) html += '<span class="muted hide-sm"> · </span><span class="total hide-sm">' + esc(r.oplTotal) + '</span>';
       html += '</div>';
@@ -612,7 +609,6 @@ function buildAthleteCard(lifter, r) {
     if (r.oplFederation) parts.push('<span class="ath-fed">' + esc(r.oplFederation) + '</span>');
     if (wc) parts.push('<span class="ath-sec">' + esc(wc) + '</span>');
     if (r.oplEquipment) parts.push('<span class="ath-sec">' + esc(r.oplEquipment) + '</span>');
-    if (r.dataSource) { var cBdg = r.dataSource === 'ipf' ? 'src-bdg src-bdg-ipf' : 'src-bdg src-bdg-opl'; parts.push('<span class="' + cBdg + '">' + (r.dataSource === 'ipf' ? 'IPF' : 'OPL') + '</span>'); }
     if (parts.length) html += '<div class="ath-meta">' + parts.join('<span class="ath-sep"> - </span>') + '</div>';
     var sbd = [];
     if (r.oplSquat && parseFloat(r.oplSquat) > 0) sbd.push(['S', formatKg(r.oplSquat)]);
@@ -723,6 +719,7 @@ function render() {
     html += '<span class="meet-name">' + esc(meet.name) + '</span>';
     html += '<span class="chip">' + esc(meet.federation) + '</span>';
     if (meet.date) html += '<span class="chip">' + esc(meet.date) + '</span>';
+    html += '<span class="chip' + (oplSource === 'ipf' ? ' chip-ipf' : '') + '">' + (oplSource === 'ipf' ? 'OpenIPF' : 'OpenPowerlifting') + '</span>';
     if (st.phase === 'done') {
       if (st.saved) {
         html += '<button class="btn-share" onclick="doShare()" ' + (st.shareLoading ? 'disabled' : '') + '>' + (st.shareLoading ? 'Sharing…' : 'Share') + '</button>';
