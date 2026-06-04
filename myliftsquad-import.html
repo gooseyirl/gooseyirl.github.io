@@ -186,10 +186,19 @@ tr:last-child td{border-bottom:none}
 .btn-copy{background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);border-radius:var(--rs);padding:5px 12px;font-size:.8rem;cursor:pointer;white-space:nowrap;flex-shrink:0}
 .btn-copy:hover{border-color:var(--accent);color:var(--accent)}
 .btn-copy.copied{border-color:var(--success);color:var(--success)}
+.btn-dismiss{background:none;border:none;color:var(--text-muted);font-size:1rem;line-height:1;cursor:pointer;padding:4px 6px;flex-shrink:0;opacity:.6;transition:opacity .15s,color .15s}
+.btn-dismiss:hover{opacity:1;color:var(--text)}
 .chip-opl{background:rgba(251,54,64,.14);color:#fb3640}.chip-ipf{background:rgba(253,185,62,.16);color:#fdb93e}
-.src-ctrl{display:inline-flex;background:var(--bg);border:1px solid var(--border);border-radius:var(--rs);overflow:hidden;margin-top:6px}
-.src-opt{padding:7px 14px;font-size:.875rem;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--text-muted);transition:background .15s,color .15s;line-height:1.4}
-.src-opt.active{background:var(--accent);color:#fff}
+/* Source toggle — heavier, pill style with glow on active */
+.src-ctrl{display:inline-flex;background:var(--surface2);border:1px solid var(--border);border-radius:99px;padding:3px;gap:2px}
+.src-opt{padding:5px 13px;font-size:.8125rem;font-weight:600;cursor:pointer;border:none;background:transparent;color:var(--text-muted);border-radius:99px;transition:background .18s,color .18s,box-shadow .18s;line-height:1.4;white-space:nowrap}
+.src-opt:hover{color:var(--text)}
+.src-opt.active{background:var(--accent);color:#fff;box-shadow:0 0 0 1px rgba(108,143,255,.4),0 2px 8px rgba(108,143,255,.25)}
+/* Metric toggle — lighter, tab/underline style */
+.metric-ctrl{display:inline-flex;gap:0;border-bottom:1px solid var(--border)}
+.metric-opt{padding:5px 12px;font-size:.8125rem;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--text-muted);border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .15s,border-color .15s;line-height:1.4;white-space:nowrap}
+.metric-opt:hover{color:var(--text)}
+.metric-opt.active{color:var(--accent);border-bottom-color:var(--accent)}
 </style>
 </head>
 <body>
@@ -730,9 +739,9 @@ function render() {
     html += '<span class="chip">' + esc(meet.federation) + '</span>';
     if (meet.date) html += '<span class="chip">' + esc(meet.date) + '</span>';
     html += '<span class="chip ' + (oplSource === 'ipf' ? 'chip-ipf' : 'chip-opl') + '">' + (oplSource === 'ipf' ? 'OpenIPF' : 'OpenPowerlifting') + '</span>';
-    html += '<div class="src-ctrl" style="margin-top:0">' +
-      '<button class="src-opt' + (st.metric === 'total' ? ' active' : '') + '" onclick="setMetric(\'total\')">Total</button>' +
-      '<button class="src-opt' + (st.metric === 'gl' ? ' active' : '') + '" onclick="setMetric(\'gl\')">GL Points</button>' +
+    html += '<div class="metric-ctrl">' +
+      '<button class="metric-opt' + (st.metric === 'total' ? ' active' : '') + '" onclick="setMetric(\'total\')">Total</button>' +
+      '<button class="metric-opt' + (st.metric === 'gl' ? ' active' : '') + '" onclick="setMetric(\'gl\')">GL Points</button>' +
       '</div>';
     if (st.phase === 'done') {
       if (st.saved) {
@@ -748,6 +757,7 @@ function render() {
       html += '<div class="share-box">';
       html += '<span class="share-url">' + esc(surl) + '</span>';
       html += '<button id="copybtn" class="btn-copy" onclick="copyShareUrl()">Copy</button>';
+      html += '<button class="btn-dismiss" onclick="st.shareCode=null;render()" title="Dismiss">&times;</button>';
       html += '</div>';
     }
     if (st.saved && st.shareError) {
