@@ -216,13 +216,19 @@ var HISTORY_KEY = 'mls_history';
 var HISTORY_MAX = 5;
 var oplSource = localStorage.getItem('mls_opl_source') || 'opl';
 
-function setOplSource(src) {
+async function setOplSource(src) {
+  if (src === oplSource) return;
   oplSource = src;
   try { localStorage.setItem('mls_opl_source', src); } catch(e) {}
-  var oBtn = document.getElementById('src-opl');
-  var iBtn = document.getElementById('src-ipf');
-  if (oBtn) oBtn.classList.toggle('active', src === 'opl');
-  if (iBtn) iBtn.classList.toggle('active', src === 'ipf');
+  if (st.phase === 'done' || st.phase === 'resolving') {
+    st.resolved = new Array(st.lifters.length).fill(null);
+    st.resolvedCount = 0;
+    st.phase = 'resolving';
+    render();
+    await doResolveAll();
+    st.phase = 'done';
+    render();
+  }
 }
 
 function setMetric(m) {
@@ -746,10 +752,6 @@ function render() {
     html += '<span class="chip">' + esc(meet.federation) + '</span>';
     if (meet.date) html += '<span class="chip">' + esc(meet.date) + '</span>';
     html += '<span class="chip ' + (oplSource === 'ipf' ? 'chip-ipf' : 'chip-opl') + '">' + (oplSource === 'ipf' ? 'OpenIPF' : 'OpenPowerlifting') + '</span>';
-    html += '<div class="metric-ctrl">' +
-      '<button class="metric-opt' + (st.metric === 'total' ? ' active' : '') + '" onclick="setMetric(\'total\')">Total</button>' +
-      '<button class="metric-opt' + (st.metric === 'gl' ? ' active' : '') + '" onclick="setMetric(\'gl\')">GL Points</button>' +
-      '</div>';
     if (st.phase === 'done') {
       if (st.saved) {
         html += '<button class="btn-share" onclick="doShare()" ' + (st.shareLoading ? 'disabled' : '') + '>' + (st.shareLoading ? 'Sharing…' : 'Share') + '</button>';
@@ -780,6 +782,23 @@ function render() {
       html += '<p class="hint" style="margin-top:8px">Squad prefix: <strong>' + esc(meetLabel()) + '</strong></p>';
     }
     html += '</div>';
+
+    if (st.phase === 'done' && !st.saved) {
+      html += '<div class="card" style="padding:16px 20px">';
+      html += '<div class="card-title" style="margin-bottom:12px">View Settings</div>';
+      html += '<div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start">';
+      html += '<div><div style="font-size:.75rem;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Data Source</div>';
+      html += '<div class="src-ctrl">' +
+        '<button class="src-opt' + (oplSource === 'opl' ? ' active' : '') + '" onclick="setOplSource(\'opl\')">OpenPowerlifting</button>' +
+        '<button class="src-opt' + (oplSource === 'ipf' ? ' active' : '') + '" onclick="setOplSource(\'ipf\')">OpenIPF</button>' +
+        '</div></div>';
+      html += '<div><div style="font-size:.75rem;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Display Metric</div>';
+      html += '<div class="src-ctrl">' +
+        '<button class="src-opt' + (st.metric === 'total' ? ' active' : '') + '" onclick="setMetric(\'total\')">Total</button>' +
+        '<button class="src-opt' + (st.metric === 'gl' ? ' active' : '') + '" onclick="setMetric(\'gl\')">GL Points</button>' +
+        '</div></div>';
+      html += '</div></div>';
+    }
 
     if (st.saved) {
       html += buildSquadView();
