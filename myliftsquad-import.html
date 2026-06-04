@@ -215,6 +215,8 @@ var BUNDLE_API = 'https://myliftsquad-api.gooseyirl.workers.dev';
 var HISTORY_KEY = 'mls_history';
 var HISTORY_MAX = 5;
 var oplSource = localStorage.getItem('mls_opl_source') || 'opl';
+function loadPref(key, fallback) { try { return localStorage.getItem(key) || fallback; } catch(e) { return fallback; } }
+function savePref(key, val) { try { localStorage.setItem(key, val); } catch(e) {} }
 
 async function setOplSource(src) {
   if (src === oplSource) return;
@@ -237,6 +239,7 @@ async function setOplSource(src) {
 
 function setMetric(m) {
   st.metric = m;
+  savePref('mls_metric', m);
   render();
 }
 
@@ -315,7 +318,9 @@ var st = {
   shareCode: null,
   shareLoading: false,
   shareError: null,
-  metric: 'total'
+  metric: loadPref('mls_metric', 'total'),
+  sortCol: loadPref('mls_sort_col', '') || null,
+  sortDir: loadPref('mls_sort_dir', 'asc')
 };
 
 function esc(s) {
@@ -399,6 +404,8 @@ function setSort(col) {
     st.sortCol = col;
     st.sortDir = 'asc';
   }
+  savePref('mls_sort_col', st.sortCol || '');
+  savePref('mls_sort_dir', st.sortDir);
   render();
 }
 
