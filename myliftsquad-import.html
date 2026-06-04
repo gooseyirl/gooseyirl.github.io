@@ -216,6 +216,11 @@ function setOplSource(src) {
   if (iBtn) iBtn.classList.toggle('active', src === 'ipf');
 }
 
+function setMetric(m) {
+  st.metric = m;
+  render();
+}
+
 function oplProfileBase() {
   return oplSource === 'ipf' ? 'https://www.openipf.org/u' : 'https://www.openpowerlifting.org/u';
 }
@@ -290,7 +295,8 @@ var st = {
   panelError: null,
   shareCode: null,
   shareLoading: false,
-  shareError: null
+  shareError: null,
+  metric: 'total'
 };
 
 function esc(s) {
@@ -627,8 +633,12 @@ function buildAthleteCard(lifter, r) {
     if (wc2) html += '<div class="ath-meta"><span class="ath-sec">' + esc(wc2) + '</span></div>';
   }
   html += '</div>';
-  if (r && r.oplTotal && parseFloat(r.oplTotal) > 0) {
-    html += '<div class="ath-total">' + esc(formatKg(r.oplTotal)) + '</div>';
+  if (r && r.oplSlug) {
+    var dispVal = st.metric === 'gl' ? (r.oplGlPoints || '') : (r.oplTotal || '');
+    var dispNum = parseFloat(dispVal);
+    if (dispNum > 0) {
+      html += '<div class="ath-total">' + esc(st.metric === 'gl' ? dispNum.toFixed(2) : formatKg(dispVal)) + '</div>';
+    }
   }
   html += '</div>';
   return html;
@@ -720,6 +730,10 @@ function render() {
     html += '<span class="chip">' + esc(meet.federation) + '</span>';
     if (meet.date) html += '<span class="chip">' + esc(meet.date) + '</span>';
     html += '<span class="chip ' + (oplSource === 'ipf' ? 'chip-ipf' : 'chip-opl') + '">' + (oplSource === 'ipf' ? 'OpenIPF' : 'OpenPowerlifting') + '</span>';
+    html += '<div class="src-ctrl" style="margin-top:0">' +
+      '<button class="src-opt' + (st.metric === 'total' ? ' active' : '') + '" onclick="setMetric(\'total\')">Total</button>' +
+      '<button class="src-opt' + (st.metric === 'gl' ? ' active' : '') + '" onclick="setMetric(\'gl\')">GL Points</button>' +
+      '</div>';
     if (st.phase === 'done') {
       if (st.saved) {
         html += '<button class="btn-share" onclick="doShare()" ' + (st.shareLoading ? 'disabled' : '') + '>' + (st.shareLoading ? 'Sharing…' : 'Share') + '</button>';
@@ -884,10 +898,10 @@ async function doResolveAll() {
         .then(function(r) { return r.json(); })
         .then(function(d) {
           var best = d.results && d.results[0];
-          return { idx: idx, oplName: best ? best.name : '', oplSlug: best ? best.slug : '', confidence: best ? best.confidence : 'none', oplWeightClass: best ? best.weightClass : '', oplTotal: best ? best.total : '', oplSquat: best ? best.squat : '', oplBench: best ? best.bench : '', oplDeadlift: best ? best.deadlift : '', oplFederation: best ? best.federation : '', oplEquipment: best ? best.equipment : '', dataSource: best && best.slug ? oplSource : '' };
+          return { idx: idx, oplName: best ? best.name : '', oplSlug: best ? best.slug : '', confidence: best ? best.confidence : 'none', oplWeightClass: best ? best.weightClass : '', oplTotal: best ? best.total : '', oplGlPoints: best ? (best.glPoints || '') : '', oplSquat: best ? best.squat : '', oplBench: best ? best.bench : '', oplDeadlift: best ? best.deadlift : '', oplFederation: best ? best.federation : '', oplEquipment: best ? best.equipment : '', dataSource: best && best.slug ? oplSource : '' };
         })
         .catch(function() {
-          return { idx: idx, oplName: '', oplSlug: '', confidence: 'none', oplWeightClass: '', oplTotal: '', oplSquat: '', oplBench: '', oplDeadlift: '', oplFederation: '', oplEquipment: '', dataSource: '' };
+          return { idx: idx, oplName: '', oplSlug: '', confidence: 'none', oplWeightClass: '', oplTotal: '', oplGlPoints: '', oplSquat: '', oplBench: '', oplDeadlift: '', oplFederation: '', oplEquipment: '', dataSource: '' };
         });
     });
     var results = await Promise.all(promises);
@@ -948,6 +962,7 @@ async function doLookup(idx) {
       confidence: 'manual',
       oplWeightClass: data.weightClass || '',
       oplTotal: data.total || '',
+      oplGlPoints: data.glPoints || '',
       oplSquat: data.squat || '',
       oplBench: data.bench || '',
       oplDeadlift: data.deadlift || '',
