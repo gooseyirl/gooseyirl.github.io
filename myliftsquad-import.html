@@ -670,6 +670,16 @@ function buildSquadView() {
   var groups = groupByFlight(st.lifters);
   var flights = Object.keys(groups).sort();
   var html = '';
+  if (flights.length > 0) {
+    html += '<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">';
+    html += '<span style="font-size:.75rem;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em">Sort:</span>';
+    html += thSort('Name', 'name');
+    html += '<span style="opacity:.3">·</span>';
+    html += thSort('Class', 'class');
+    html += '<span style="opacity:.3">·</span>';
+    html += thSort(st.metric === 'gl' ? 'GL Points' : 'Total', 'total');
+    html += '</div>';
+  }
   for (var fi = 0; fi < flights.length; fi++) {
     var f = flights[fi];
     var entries = sortEntries(groups[f]);
