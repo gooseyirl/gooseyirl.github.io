@@ -668,10 +668,20 @@ function buildAthleteCard(lifter, r) {
   }
   html += '</div>';
   if (r && r.oplSlug) {
-    var dispVal = st.metric === 'gl' ? (r.oplGlPoints || '') : (r.oplTotal || '');
-    var dispNum = parseFloat(dispVal);
-    if (dispNum > 0) {
-      html += '<div class="ath-total">' + esc(st.metric === 'gl' ? dispNum.toFixed(2) : formatKg(dispVal)) + '</div>';
+    var totalNum = parseFloat(r.oplTotal || '');
+    var glNum = parseFloat(r.oplGlPoints || '');
+    var hasTotal = totalNum > 0;
+    var hasGl = glNum > 0;
+    if (hasTotal || hasGl) {
+      html += '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0">';
+      if (st.metric === 'gl') {
+        if (hasGl) html += '<div class="ath-total">' + esc(glNum.toFixed(2)) + ' GL</div>';
+        if (hasTotal) html += '<div style="font-size:.75rem;color:var(--text-muted)">' + esc(formatKg(r.oplTotal)) + '</div>';
+      } else {
+        if (hasTotal) html += '<div class="ath-total">' + esc(formatKg(r.oplTotal)) + '</div>';
+        if (hasGl) html += '<div style="font-size:.75rem;color:var(--text-muted)">' + esc(glNum.toFixed(2)) + ' GL</div>';
+      }
+      html += '</div>';
     }
   }
   html += '</div>';
