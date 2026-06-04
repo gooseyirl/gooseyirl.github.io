@@ -528,7 +528,7 @@ async function loadFromShareCode(code) {
     st.resolvedCount = (s.resolved || []).filter(Boolean).length;
     st.bundleCodes = s.bundleCodes || null;
     st.saved = true;
-    st.shareCode = code;
+    st.shareCode = null;
     render();
   } catch(err) {
     st.phase = 'error';
