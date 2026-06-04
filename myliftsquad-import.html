@@ -620,8 +620,14 @@ function renderPanel() {
           html += '</div>';
         }
         html += '</div><div class="meet-row-right">';
-        if (m.total && parseFloat(m.total) > 0) html += '<div class="ath-total">' + esc(formatKg(m.total)) + '</div>';
-        if (m.glPoints && parseFloat(m.glPoints) > 0) html += '<div style="font-size:.75rem;color:var(--text-muted);text-align:right;margin-top:2px">' + esc(parseFloat(m.glPoints).toFixed(2)) + ' GL</div>';
+        var mTotal = parseFloat(m.total || ''), mGl = parseFloat(m.glPoints || '');
+        if (st.metric === 'gl') {
+          if (mGl > 0) html += '<div class="ath-total">' + esc(mGl.toFixed(2)) + ' GL</div>';
+          if (mTotal > 0) html += '<div style="font-size:.75rem;color:var(--text-muted);text-align:right;margin-top:2px">' + esc(formatKg(m.total)) + '</div>';
+        } else {
+          if (mTotal > 0) html += '<div class="ath-total">' + esc(formatKg(m.total)) + '</div>';
+          if (mGl > 0) html += '<div style="font-size:.75rem;color:var(--text-muted);text-align:right;margin-top:2px">' + esc(mGl.toFixed(2)) + ' GL</div>';
+        }
         if (m.place) html += '<div class="meet-place">' + esc(formatPlace(m.place)) + '</div>';
         html += '</div></div>';
       }
