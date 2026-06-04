@@ -404,6 +404,13 @@ function sortEntries(entries) {
       if (wa !== wb) return dir * (wa - wb);
       return a.lifter.name.localeCompare(b.lifter.name);
     }
+    if (st.sortCol === 'total') {
+      var ra = st.resolved[a.idx], rb = st.resolved[b.idx];
+      var va = ra ? parseFloat(st.metric === 'gl' ? ra.oplGlPoints : ra.oplTotal) || 0 : 0;
+      var vb = rb ? parseFloat(st.metric === 'gl' ? rb.oplGlPoints : rb.oplTotal) || 0 : 0;
+      if (va !== vb) return dir * (va - vb);
+      return a.lifter.name.localeCompare(b.lifter.name);
+    }
     return 0;
   });
 }
@@ -430,7 +437,7 @@ function buildFlightsHTML() {
     html += '<div class="lifter-list">';
     html += '<div class="lifter-list-header">';
     html += '<div class="lifter-col-main">' + thSort('Lifter', 'name') + '<span style="opacity:.3;margin:0 8px">·</span>' + thSort('Class', 'class') + '</div>';
-    html += '<div class="lifter-col-right" style="font-size:.6875rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted)">Confidence</div>';
+    html += '<div class="lifter-col-right" style="display:flex;align-items:center;gap:12px"><span style="font-size:.6875rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted)">Confidence</span>' + thSort(st.metric === 'gl' ? 'GL Pts' : 'Total', 'total') + '</div>';
     html += '</div>';
     html += buildTableRows(sortEntries(entries));
     html += '</div></div>';
