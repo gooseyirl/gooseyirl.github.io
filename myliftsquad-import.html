@@ -614,6 +614,7 @@ function renderPanel() {
         }
         html += '</div><div class="meet-row-right">';
         if (m.total && parseFloat(m.total) > 0) html += '<div class="ath-total">' + esc(formatKg(m.total)) + '</div>';
+        if (m.glPoints && parseFloat(m.glPoints) > 0) html += '<div style="font-size:.75rem;color:var(--text-muted);text-align:right;margin-top:2px">' + esc(parseFloat(m.glPoints).toFixed(2)) + ' GL</div>';
         if (m.place) html += '<div class="meet-place">' + esc(formatPlace(m.place)) + '</div>';
         html += '</div></div>';
       }
