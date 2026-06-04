@@ -218,6 +218,10 @@ var oplSource = localStorage.getItem('mls_opl_source') || 'opl';
 
 async function setOplSource(src) {
   if (src === oplSource) return;
+  if (st.phase === 'done' || st.phase === 'resolving') {
+    var srcName = src === 'ipf' ? 'OpenIPF' : 'OpenPowerlifting';
+    if (!confirm('Switching to ' + srcName + ' will re-look up all athletes, which may take a moment. Continue?')) return;
+  }
   oplSource = src;
   try { localStorage.setItem('mls_opl_source', src); } catch(e) {}
   if (st.phase === 'done' || st.phase === 'resolving') {
