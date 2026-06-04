@@ -828,6 +828,7 @@ function render() {
       if (st.saved) {
         html += '<div><div style="font-size:.75rem;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Sort By</div>';
         html += '<div class="src-ctrl">' +
+          '<button class="src-opt' + (!st.sortCol ? ' active' : '') + '" onclick="st.sortCol=null;savePref(\'mls_sort_col\',\'\');render()">Default</button>' +
           '<button class="src-opt' + (st.sortCol === 'name' ? ' active' : '') + '" onclick="setSort(\'name\')">Name</button>' +
           '<button class="src-opt' + (st.sortCol === 'class' ? ' active' : '') + '" onclick="setSort(\'class\')">Class</button>' +
           '<button class="src-opt' + (st.sortCol === 'total' ? ' active' : '') + '" onclick="setSort(\'total\')">' + (st.metric === 'gl' ? 'GL Points' : 'Total') + '</button>' +
