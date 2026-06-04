@@ -827,13 +827,11 @@ function render() {
         '</div></div>';
       if (st.saved) {
         html += '<div><div style="font-size:.75rem;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Sort By</div>';
-        html += '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">';
-        html += thSort('Name', 'name');
-        html += '<span style="opacity:.3">·</span>';
-        html += thSort('Class', 'class');
-        html += '<span style="opacity:.3">·</span>';
-        html += thSort(st.metric === 'gl' ? 'GL Points' : 'Total', 'total');
-        html += '</div></div>';
+        html += '<div class="src-ctrl">' +
+          '<button class="src-opt' + (st.sortCol === 'name' ? ' active' : '') + '" onclick="setSort(\'name\')">Name</button>' +
+          '<button class="src-opt' + (st.sortCol === 'class' ? ' active' : '') + '" onclick="setSort(\'class\')">Class</button>' +
+          '<button class="src-opt' + (st.sortCol === 'total' ? ' active' : '') + '" onclick="setSort(\'total\')">' + (st.metric === 'gl' ? 'GL Points' : 'Total') + '</button>' +
+          '</div></div>';
       }
       html += '</div></div>';
     }
