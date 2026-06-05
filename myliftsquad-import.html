@@ -181,13 +181,19 @@ tr:last-child td{border-bottom:none}
 .sort-btn-active{color:var(--accent) !important}
 .btn-share{background:none;border:1px solid var(--accent);color:var(--accent);border-radius:var(--rs);padding:5px 14px;font-size:.8125rem;font-weight:600;cursor:pointer;flex-shrink:0}
 .btn-share:hover{background:var(--accent);color:#fff}
-.share-box{margin-top:12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--rs);padding:10px 14px;display:flex;align-items:center;gap:10px}
-.share-url{flex:1;font-family:ui-monospace,monospace;font-size:.75rem;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
-.btn-copy{background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);border-radius:var(--rs);padding:5px 12px;font-size:.8rem;cursor:pointer;white-space:nowrap;flex-shrink:0}
+.share-box{margin-top:14px;background:var(--bg);border:1px solid var(--accent);border-radius:var(--r);padding:20px 18px;display:flex;flex-direction:column;align-items:center;gap:12px;position:relative}
+.share-box-dismiss{position:absolute;top:10px;right:12px;background:none;border:none;color:var(--text-muted);font-size:1.1rem;line-height:1;cursor:pointer;padding:4px 6px;opacity:.6;transition:opacity .15s,color .15s}
+.share-box-dismiss:hover{opacity:1;color:var(--text)}
+.share-box-qr{background:#fff;padding:8px;border-radius:var(--rs);display:flex;align-items:center;justify-content:center}
+.share-box-code{font-family:ui-monospace,monospace;font-size:2rem;font-weight:700;letter-spacing:.18em;color:var(--accent)}
+.share-box-hint{color:var(--text-muted);font-size:.8rem;text-align:center;line-height:1.4}
+.share-box-actions{display:flex;gap:8px;width:100%}
+.btn-copy{flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);border-radius:var(--rs);padding:7px 12px;font-size:.8rem;cursor:pointer;white-space:nowrap;transition:border-color .15s,color .15s}
 .btn-copy:hover{border-color:var(--accent);color:var(--accent)}
 .btn-copy.copied{border-color:var(--success);color:var(--success)}
-.btn-dismiss{background:none;border:none;color:var(--text-muted);font-size:1rem;line-height:1;cursor:pointer;padding:4px 6px;flex-shrink:0;opacity:.6;transition:opacity .15s,color .15s}
-.btn-dismiss:hover{opacity:1;color:var(--text)}
+.btn-copy-link{flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);border-radius:var(--rs);padding:7px 12px;font-size:.8rem;cursor:pointer;white-space:nowrap;transition:border-color .15s,color .15s}
+.btn-copy-link:hover{border-color:var(--accent);color:var(--accent)}
+.btn-copy-link.copied{border-color:var(--success);color:var(--success)}
 .chip-opl{background:rgba(251,54,64,.14);color:#fb3640}.chip-ipf{background:rgba(253,185,62,.16);color:#fdb93e}
 /* Source toggle — heavier, pill style with glow on active */
 .src-ctrl{display:inline-flex;background:var(--surface2);border:1px solid var(--border);border-radius:99px;padding:3px;gap:2px}
@@ -500,14 +506,22 @@ function copyShareUrl() {
   var url = shareUrl();
   if (!url) return;
   navigator.clipboard.writeText(url).then(function() {
-    var btn = document.getElementById('copybtn');
-    if (btn) { btn.textContent = 'Copied!'; btn.classList.add('copied'); setTimeout(function(){ btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000); }
+    var btn = document.getElementById('copyurlbtn');
+    if (btn) { btn.textContent = 'Copied!'; btn.classList.add('copied'); setTimeout(function(){ btn.textContent = 'Copy Link'; btn.classList.remove('copied'); }, 2000); }
   });
 }
 
 function shareUrl() {
   if (!st.shareCode) return '';
   return window.location.origin + window.location.pathname + '?share=' + st.shareCode;
+}
+
+function copyShareCode() {
+  if (!st.shareCode) return;
+  navigator.clipboard.writeText(st.shareCode).then(function() {
+    var btn = document.getElementById('copybtn');
+    if (btn) { btn.textContent = 'Copied!'; btn.classList.add('copied'); setTimeout(function(){ btn.textContent = 'Copy Code'; btn.classList.remove('copied'); }, 2000); }
+  });
 }
 
 async function loadFromShareCode(code) {
@@ -790,11 +804,15 @@ function render() {
     }
     html += '</div>';
     if (st.saved && st.shareCode) {
-      var surl = shareUrl();
       html += '<div class="share-box">';
-      html += '<span class="share-url">' + esc(surl) + '</span>';
-      html += '<button id="copybtn" class="btn-copy" onclick="copyShareUrl()">Copy</button>';
-      html += '<button class="btn-dismiss" onclick="st.shareCode=null;render()" title="Dismiss">&times;</button>';
+      html += '<button class="share-box-dismiss" onclick="st.shareCode=null;render()" title="Dismiss">&times;</button>';
+      html += '<div class="share-box-qr" id="share-qr-wrap"></div>';
+      html += '<div class="share-box-code">' + esc(st.shareCode) + '</div>';
+      html += '<div class="share-box-hint">Open MyLiftSquad &rarr; Import &rarr; enter this code<br>or scan the QR code with the app</div>';
+      html += '<div class="share-box-actions">';
+      html += '<button id="copybtn" class="btn-copy" onclick="copyShareCode()">Copy Code</button>';
+      html += '<button id="copyurlbtn" class="btn-copy-link" onclick="copyShareUrl()">Copy Link</button>';
+      html += '</div>';
       html += '</div>';
     }
     if (st.saved && st.shareError) {
@@ -890,6 +908,13 @@ function render() {
   }
 
   app.innerHTML = html;
+
+  if (st.shareCode && typeof QRCode !== 'undefined') {
+    var sqel = document.getElementById('share-qr-wrap');
+    if (sqel && !sqel.hasChildNodes()) {
+      new QRCode(sqel, { text: st.shareCode, width: 160, height: 160, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
+    }
+  }
 
   if (st.bundleCodes && typeof QRCode !== 'undefined') {
     for (var qi = 0; qi < st.bundleCodes.length; qi++) {
