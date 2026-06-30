@@ -475,16 +475,58 @@ function meetLabel() {
   return st.meet.federation + ' - ' + st.meet.date;
 }
 
+async function buildBundleCodes() {
+  var label = meetLabel();
+  var flightMap = {};
+  for (var i = 0; i < st.lifters.length; i++) {
+    var lifter = st.lifters[i];
+    var r = st.resolved[i];
+    var f = lifter.flight || '?';
+    if (!flightMap[f]) flightMap[f] = [];
+    var athlete = { name: lifter.name };
+    if (r && r.oplSlug) athlete.slug = r.oplSlug;
+    flightMap[f].push(athlete);
+  }
+  var flights = Object.keys(flightMap).sort();
+  var MAX = 10;
+  var bundles = [];
+  for (var b = 0; b < flights.length; b += MAX) {
+    var chunk = flights.slice(b, b + MAX);
+    var squads = chunk.map(function(fl) {
+      return { name: label + ' - Flight ' + fl, athletes: flightMap[fl] };
+    });
+    bundles.push({ flights: chunk, squads: squads });
+  }
+  var codes = [];
+  for (var bi = 0; bi < bundles.length; bi++) {
+    var bundle = bundles[bi];
+    var res = await fetch(BUNDLE_API + '/bundles', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ squads: bundle.squads })
+    });
+    var data = await res.json();
+    if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+    codes.push({ code: data.code, flights: bundle.flights });
+  }
+  return codes;
+}
+
 async function doShare() {
   st.shareLoading = true;
   st.shareError = null;
   st.shareCode = null;
   render();
-  var state = {
-    meetId: st.meetId, lcUrl: st.lcUrl, nameOverride: st.nameOverride,
-    meet: st.meet, lifters: st.lifters, resolved: st.resolved, bundleCodes: st.bundleCodes
-  };
   try {
+    // Generate app-importable bundle codes
+    var bundleCodes = await buildBundleCodes();
+    st.bundleCodes = bundleCodes;
+
+    // Also store web tool state for browser sharing
+    var state = {
+      meetId: st.meetId, lcUrl: st.lcUrl, nameOverride: st.nameOverride,
+      meet: st.meet, lifters: st.lifters, resolved: st.resolved, bundleCodes: bundleCodes
+    };
     var res = await fetch(API + '/api/share', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -806,13 +848,37 @@ function render() {
     if (st.saved && st.shareCode) {
       html += '<div class="share-box">';
       html += '<button class="share-box-dismiss" onclick="st.shareCode=null;render()" title="Dismiss">&times;</button>';
-      html += '<div class="share-box-qr" id="share-qr-wrap"></div>';
-      html += '<div class="share-box-code">' + esc(st.shareCode) + '</div>';
-      html += '<div class="share-box-hint">Open MyLiftSquad &rarr; Import &rarr; enter this code<br>or scan the QR code with the app</div>';
-      html += '<div class="share-box-actions">';
-      html += '<button id="copybtn" class="btn-copy" onclick="copyShareCode()">Copy Code</button>';
-      html += '<button id="copyurlbtn" class="btn-copy-link" onclick="copyShareUrl()">Copy Link</button>';
-      html += '</div>';
+      if (st.bundleCodes && st.bundleCodes.length === 1) {
+        // Single bundle — show QR + code for app import
+        html += '<div class="share-box-qr" id="share-bundle-qr-' + esc(st.bundleCodes[0].code) + '"></div>';
+        html += '<div class="share-box-code">' + esc(st.bundleCodes[0].code) + '</div>';
+        html += '<div class="share-box-hint">Open MyLiftSquad &rarr; Import &rarr; enter this code<br>or scan the QR code with the app</div>';
+        html += '<div class="share-box-actions">';
+        html += '<button class="btn-copy" onclick="navigator.clipboard.writeText(\'' + esc(st.bundleCodes[0].code) + '\').then(function(){var b=document.getElementById(\'copybtn\');if(b){b.textContent=\'Copied!\';b.classList.add(\'copied\');setTimeout(function(){b.textContent=\'Copy Code\';b.classList.remove(\'copied\');},2000);}});" id="copybtn">Copy Code</button>';
+        html += '<button id="copyurlbtn" class="btn-copy-link" onclick="copyShareUrl()">Copy Link</button>';
+        html += '</div>';
+      } else if (st.bundleCodes && st.bundleCodes.length > 1) {
+        // Multiple bundles — list codes
+        html += '<div class="share-box-hint" style="font-weight:600;color:var(--text)">App Import Codes</div>';
+        for (var sbi = 0; sbi < st.bundleCodes.length; sbi++) {
+          var sbc = st.bundleCodes[sbi];
+          html += '<div style="display:flex;align-items:center;gap:10px;width:100%">';
+          html += '<span style="color:var(--text-muted);font-size:.8rem;flex:1">Flights ' + esc(sbc.flights.join(', ')) + '</span>';
+          html += '<span class="share-box-code" style="font-size:1.3rem">' + esc(sbc.code) + '</span>';
+          html += '<div class="share-box-qr" id="share-bundle-qr-' + esc(sbc.code) + '" style="padding:4px"></div>';
+          html += '</div>';
+        }
+        html += '<div class="share-box-hint">Enter a code in MyLiftSquad &rarr; Import, or scan QR</div>';
+        html += '<div class="share-box-actions">';
+        html += '<button id="copyurlbtn" class="btn-copy-link" onclick="copyShareUrl()" style="flex:1">Copy Share Link</button>';
+        html += '</div>';
+      } else {
+        // Fallback — no bundle codes
+        html += '<div class="share-box-hint">Share link copied to clipboard.</div>';
+        html += '<div class="share-box-actions">';
+        html += '<button id="copyurlbtn" class="btn-copy-link" onclick="copyShareUrl()">Copy Link</button>';
+        html += '</div>';
+      }
       html += '</div>';
     }
     if (st.saved && st.shareError) {
@@ -909,10 +975,14 @@ function render() {
 
   app.innerHTML = html;
 
-  if (st.shareCode && typeof QRCode !== 'undefined') {
-    var sqel = document.getElementById('share-qr-wrap');
-    if (sqel && !sqel.hasChildNodes()) {
-      new QRCode(sqel, { text: st.shareCode, width: 160, height: 160, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
+  if (st.shareCode && st.bundleCodes && typeof QRCode !== 'undefined') {
+    for (var sqi = 0; sqi < st.bundleCodes.length; sqi++) {
+      var sqCode = st.bundleCodes[sqi].code;
+      var sqEl = document.getElementById('share-bundle-qr-' + sqCode);
+      if (sqEl && !sqEl.hasChildNodes()) {
+        var sqSize = st.bundleCodes.length === 1 ? 160 : 80;
+        new QRCode(sqEl, { text: sqCode, width: sqSize, height: sqSize, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
+      }
     }
   }
 
