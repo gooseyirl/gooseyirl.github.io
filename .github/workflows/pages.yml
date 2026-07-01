@@ -42,6 +42,9 @@ jobs:
           # Flexible match: replaces whatever version is currently shown,
           # whether a token or a previously-stamped number.
           sed -i -E "s|(id=\"appVersion\">v)[^<]*|\1${VERSION}|" myliftsquad-import.html
+          # Cache-bust the external assets so browsers fetch fresh CSS/JS on
+          # every deploy instead of serving a stale copy.
+          sed -i -E "s|(myliftsquad-import\.(css\|js)\?v=)[^\"']*|\1${VERSION}|g" myliftsquad-import.html
 
       - name: Commit stamped version back to repo
         # So the branch-based Pages builder (if still enabled) also serves a
