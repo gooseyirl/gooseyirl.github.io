@@ -209,7 +209,7 @@ tr:last-child td{border-bottom:none}
 </style>
 </head>
 <body>
-<div class="app-version">v2.5.1</div>
+<div class="app-version">v2.5.2</div>
 <div class="wrap">
   <header>
     <div class="logo">My<span>Lift</span>Squad</div>
@@ -363,6 +363,7 @@ function buildTableRows(entries) {
       html += '<div class="edit-row" style="margin-top:6px">';
       html += '<input type="url" id="eurl-' + e.idx + '" class="edit-input" placeholder="https://www.openpowerlifting.org/u/…" value="' + esc(st.editingUrl) + '">';
       html += '<button id="elookup-' + e.idx + '" class="btn-sm btn-sm-primary" onclick="doLookup(' + e.idx + ')">Lookup</button>';
+      html += '<button class="btn-sm btn-sm-ghost" onclick="clearMatch(' + e.idx + ')" title="Mark as no OpenPowerlifting profile">No match</button>';
       html += '<button class="btn-sm btn-sm-ghost" onclick="cancelEdit()" title="Cancel">✕</button>';
       html += '</div>';
       if (st.lookupError) html += '<p class="lookup-err">' + esc(st.lookupError) + '</p>';
@@ -385,6 +386,13 @@ function buildTableRows(entries) {
       var bclass2 = r.confidence === 'high' ? 'bh' : r.confidence === 'medium' ? 'bm' : r.confidence === 'manual' ? 'bmanual' : 'bl';
       var blabel2 = r.confidence === 'manual' ? 'Manual' : r.confidence;
       html += '<div class="lifter-col-right"><span class="badge ' + bclass2 + '">' + blabel2 + '</span><button class="btn-add" onclick="startEdit(' + e.idx + ')" title="Change match">✎</button></div>';
+    } else if (r.confidence === 'cleared') {
+      html += '<div class="lifter-row-meta">';
+      if (lifter.weightClass) html += '<span class="wclass">' + esc(lifter.weightClass) + '</span>';
+      html += '<span class="muted"> · no OPL profile</span>';
+      html += '</div>';
+      html += '</div>';
+      html += '<div class="lifter-col-right"><span class="badge bn">No match</span><button class="btn-add" onclick="startEdit(' + e.idx + ')" title="Change match">✎</button></div>';
     } else {
       html += '<div class="lifter-row-meta">';
       if (lifter.weightClass) html += '<span class="wclass">' + esc(lifter.weightClass) + '</span>';
@@ -1098,6 +1106,20 @@ function startEdit(idx) {
 function cancelEdit() {
   st.editingIdx = -1;
   st.lookupError = null;
+  render();
+}
+
+function clearMatch(idx) {
+  // Explicitly mark this lifter as having no OpenPowerlifting/OpenIPF profile.
+  // Used when an auto-match found a different person with the same name.
+  st.resolved[idx] = {
+    idx: idx, oplName: '', oplSlug: '', confidence: 'cleared',
+    oplWeightClass: '', oplTotal: '', oplGlPoints: '', oplSquat: '',
+    oplBench: '', oplDeadlift: '', oplFederation: '', oplEquipment: '', dataSource: ''
+  };
+  st.editingIdx = -1;
+  st.lookupError = null;
+  st.saved = false;
   render();
 }
 
