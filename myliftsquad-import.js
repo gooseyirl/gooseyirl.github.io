@@ -682,6 +682,8 @@ function buildSquadView() {
 }
 
 function doSave() {
+  var nie = document.getElementById('nom-edit');
+  if (nie) st.nameOverride = nie.value.trim();
   saveToHistory();
   st.saved = true;
   render();
@@ -763,8 +765,14 @@ function render() {
       html += '<div class="prog-bg"><div class="prog-fill" style="width:' + pct + '%"></div></div>';
       html += '<p class="prog-label">Resolving ' + (oplSource === 'ipf' ? 'OpenIPF' : 'OpenPowerlifting') + ' slugs… ' + st.resolvedCount + ' / ' + st.lifters.length + '</p>';
       html += '</div>';
-    } else {
+    } else if (st.saved) {
       html += '<p class="hint" style="margin-top:8px">Squad prefix: <strong>' + esc(meetLabel()) + '</strong></p>';
+    } else {
+      // Edit mode: let the user change the squad prefix (name override).
+      var defLabel = st.meet ? st.meet.federation + ' - ' + st.meet.date : '';
+      html += '<div class="fg" style="margin-top:10px"><label for="nom-edit">Squad prefix <span style="opacity:.5">(optional)</span></label>';
+      html += '<input type="text" id="nom-edit" placeholder="' + esc(defLabel) + '" value="' + esc(st.nameOverride) + '">';
+      html += '<p class="hint">Squad names will be prefixed with this. Defaults to federation + date.</p></div>';
     }
     html += '</div>';
 
@@ -869,6 +877,10 @@ function render() {
     }
     if (ni) ni.addEventListener('input', function() { st.nameOverride = this.value; });
   }
+
+  // Edit-mode squad-prefix field (shown in the done view before saving).
+  var nie = document.getElementById('nom-edit');
+  if (nie) nie.addEventListener('input', function() { st.nameOverride = this.value.trim(); });
 }
 
 function doReset() {
