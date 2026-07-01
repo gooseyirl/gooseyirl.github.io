@@ -65,8 +65,13 @@ tr:last-child td{border-bottom:none}
 .slug:hover{text-decoration:underline}
 .muted{color:var(--text-muted)}
 .wclass{font-family:ui-monospace,monospace;font-size:.8125rem;color:var(--text)}
+.lc-cat{display:inline-block;background:var(--accent-dim);color:var(--accent);border-radius:20px;padding:1px 9px;font-size:.78rem;font-weight:700;font-family:ui-monospace,monospace;letter-spacing:.02em}
 .lc-lot{font-family:ui-monospace,monospace;font-size:.8125rem;color:var(--text-muted)}
-.ath-lc{font-size:.75rem;color:var(--text-muted);margin-top:2px;font-family:ui-monospace,monospace}
+.opl-past{font-family:ui-monospace,monospace;font-size:.8125rem;color:var(--text-muted);font-style:italic}
+.total-past{font-weight:600}
+.ath-lc .ath-cat{display:inline-block;background:var(--accent-dim);color:var(--accent);border-radius:20px;padding:1px 9px;font-size:.72rem;font-weight:700;letter-spacing:.02em}
+.ath-lc{font-size:.75rem;color:var(--text-muted);margin-top:3px;font-family:ui-monospace,monospace;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.ath-past-tag{display:inline-block;font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted);border:1px solid var(--border);border-radius:4px;padding:0 5px;margin-right:6px;font-family:-apple-system,BlinkMacSystemFont,sans-serif}
 .total{font-family:ui-monospace,monospace;font-size:.8125rem;font-weight:600;color:var(--text)}
 .bmanual{background:rgba(108,143,255,.14);color:var(--accent)}
 .btn-add{background:none;border:1px solid var(--border);border-radius:4px;color:var(--text-muted);font-size:.7rem;padding:2px 7px;cursor:pointer;margin-left:6px;vertical-align:middle;line-height:1.4}
@@ -211,7 +216,7 @@ tr:last-child td{border-bottom:none}
 </style>
 </head>
 <body>
-<div class="app-version">v2.5.3</div>
+<div class="app-version">v2.5.4</div>
 <div class="wrap">
   <header>
     <div class="logo">My<span>Lift</span>Squad</div>
@@ -382,8 +387,8 @@ function buildTableRows(entries) {
       var lcm = lcMetaHtml(lifter);
       if (lcm) html += lcm + '<span class="muted"> → </span>';
       html += '<a class="slug" href="' + oplProfileBase() + '/' + esc(r.oplSlug) + '" target="_blank" rel="noopener">' + esc(r.oplSlug) + '</a>';
-      if (r.oplWeightClass) html += '<span class="muted hide-sm"> · </span><span class="wclass hide-sm">' + esc(r.oplWeightClass) + '</span>';
-      if (r.oplTotal) html += '<span class="muted hide-sm"> · </span><span class="total hide-sm">' + esc(r.oplTotal) + '</span>';
+      if (r.oplWeightClass) html += '<span class="muted hide-sm"> · </span><span class="opl-past hide-sm" title="Weight class from past OpenPowerlifting results">' + esc(r.oplWeightClass) + '</span>';
+      if (r.oplTotal) html += '<span class="muted hide-sm"> · </span><span class="opl-past total-past hide-sm" title="Best total from past OpenPowerlifting results">' + esc(r.oplTotal) + '</span>';
       html += '</div>';
       html += '</div>';
       var bclass2 = r.confidence === 'high' ? 'bh' : r.confidence === 'medium' ? 'bm' : r.confidence === 'manual' ? 'bmanual' : 'bl';
@@ -450,10 +455,10 @@ function parseLotNum(v) {
 function lcMetaHtml(lifter) {
   var bits = [];
   var cat = lcCategory(lifter);
-  if (cat) bits.push('<span class="wclass">' + esc(cat) + '</span>');
+  if (cat) bits.push('<span class="lc-cat" title="Category at this competition (from LiftingCast)">' + esc(cat) + '</span>');
   var lot = lcLot(lifter);
-  if (lot) bits.push('<span class="lc-lot">Lot ' + esc(lot) + '</span>');
-  return bits.join('<span class="muted"> · </span>');
+  if (lot) bits.push('<span class="lc-lot" title="Lot number at this competition">Lot ' + esc(lot) + '</span>');
+  return bits.join(' ');
 }
 
 function sortEntries(entries) {
@@ -751,19 +756,19 @@ function buildAthleteCard(lifter, r) {
     (clickable ? ' onclick="openPanel(\'' + esc(r.oplSlug) + '\',\'' + esc(lifter.name.replace(/'/g,'\\\'')) + '\')"' : '') + '>';
   html += '<div class="ath-body">';
   html += '<div class="ath-name">' + esc(lifter.name) + '</div>';
-  var lcCardParts = [];
+  var lcCardHtml = '';
   var lcCardCat = lcCategory(lifter);
-  if (lcCardCat) lcCardParts.push(esc(lcCardCat));
+  if (lcCardCat) lcCardHtml += '<span class="ath-cat" title="Category at this competition">' + esc(lcCardCat) + '</span>';
   var lcCardLot = lcLot(lifter);
-  if (lcCardLot) lcCardParts.push('Lot ' + esc(lcCardLot));
-  if (lcCardParts.length) html += '<div class="ath-lc">' + lcCardParts.join(' · ') + '</div>';
+  if (lcCardLot) lcCardHtml += '<span title="Lot number at this competition">Lot ' + esc(lcCardLot) + '</span>';
+  if (lcCardHtml) html += '<div class="ath-lc">' + lcCardHtml + '</div>';
   if (r && r.oplSlug) {
     var wc = r.oplWeightClass || lifter.weightClass;
     var parts = [];
     if (r.oplFederation) parts.push('<span class="ath-fed">' + esc(r.oplFederation) + '</span>');
     if (wc) parts.push('<span class="ath-sec">' + esc(wc) + '</span>');
     if (r.oplEquipment) parts.push('<span class="ath-sec">' + esc(r.oplEquipment) + '</span>');
-    if (parts.length) html += '<div class="ath-meta">' + parts.join('<span class="ath-sep"> - </span>') + '</div>';
+    if (parts.length) html += '<div class="ath-meta" title="Best results from past OpenPowerlifting competitions"><span class="ath-past-tag">Past PB</span>' + parts.join('<span class="ath-sep"> - </span>') + '</div>';
     var sbd = [];
     if (r.oplSquat && parseFloat(r.oplSquat) > 0) sbd.push(['S', formatKg(r.oplSquat)]);
     if (r.oplBench && parseFloat(r.oplBench) > 0) sbd.push(['B', formatKg(r.oplBench)]);
