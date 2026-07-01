@@ -23,7 +23,7 @@ try {
 </head>
 <body>
 <button id="themeToggle" class="theme-toggle" type="button" onclick="toggleTheme()">○ New look</button>
-<div class="app-version" id="appVersion">v__APP_VERSION__</div>
+<div class="app-version" id="appVersion">v2.5.60</div>
 <div class="wrap">
   <header>
     <div class="logo">My<span>Lift</span>Squad</div>
@@ -37,14 +37,5 @@ try {
   <div class="panel-handle"></div>
   <div id="panel-content"></div>
 </div>
-<script>
-// The version token above is replaced at deploy time by the GitHub Actions
-// workflow (see .github/workflows/pages.yml). When viewing the raw file
-// locally the token is still present, so show "dev" instead.
-(function () {
-  var el = document.getElementById('appVersion');
-  if (el && el.textContent.indexOf('__APP_VERSION__') > -1) el.textContent = 'dev';
-})();
-</script>
 </body>
 </html>
