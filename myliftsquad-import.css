@@ -213,6 +213,47 @@ tr:last-child td{border-bottom:none}
 .theme-toggle{position:fixed;top:30px;right:12px;z-index:1001;background:var(--surface2);color:var(--text-muted);border:1px solid var(--border);border-radius:99px;padding:3px 11px;font-size:.68rem;font-family:ui-monospace,monospace;letter-spacing:.02em;cursor:pointer;opacity:.75;transition:opacity .15s,border-color .15s,color .15s}
 .theme-toggle:hover{opacity:1;border-color:var(--accent);color:var(--accent)}
 
+/* ── Interaction feedback: blue focus rings + row hover ──
+   Uses :focus-visible so rings only show for keyboard/AT users, not
+   on mouse click. --accent-dim adapts per theme, so the ring is blue
+   in the new look and lavender-blue in the classic look. */
+input[type=url]:focus-visible,
+input[type=text]:focus-visible,
+.edit-input:focus-visible,
+.btn:focus-visible,
+.btn-sm:focus-visible,
+.btn-add:focus-visible,
+.btn-save:focus-visible,
+.btn-edit:focus-visible,
+.btn-share:focus-visible,
+.btn-copy:focus-visible,
+.btn-copy-link:focus-visible,
+.btn-back:focus-visible,
+.th-sort:focus-visible,
+.src-opt:focus-visible,
+.metric-opt:focus-visible,
+.theme-toggle:focus-visible{
+  outline:none;
+  border-color:var(--accent);
+  box-shadow:0 0 0 3px var(--accent-dim);
+}
+/* Sortable-header and data-row hover feedback */
+.th-sort:hover{color:var(--accent)}
+tbody tr{transition:background-color .12s}
+tbody tr:hover{background:var(--accent-dim)}
+.lifter-row{transition:background-color .12s}
+.lifter-row:not(.lifter-row-editing):hover{background:var(--accent-dim)}
+
+/* ── Respect reduced-motion: drop non-essential animation/transition ── */
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{
+    animation-duration:.001ms !important;
+    animation-iteration-count:1 !important;
+    transition-duration:.001ms !important;
+    scroll-behavior:auto !important;
+  }
+}
+
 /* ═══════════════════════════════════════════════════════════════
    "Clean Blue" — opt-in theme (html.theme-neo)
    Light, calm and modern. Soft neutral background, white rounded
