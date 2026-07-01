@@ -212,6 +212,10 @@ tr:last-child td{border-bottom:none}
 /* ── Optional theme toggle (works in both themes) ── */
 .theme-toggle{position:fixed;top:30px;right:12px;z-index:1001;background:var(--surface2);color:var(--text-muted);border:1px solid var(--border);border-radius:99px;padding:3px 11px;font-size:.68rem;font-family:ui-monospace,monospace;letter-spacing:.02em;cursor:pointer;opacity:.75;transition:opacity .15s,border-color .15s,color .15s}
 .theme-toggle:hover{opacity:1;border-color:var(--accent);color:var(--accent)}
+/* Hide the version tag + theme toggle while the athlete panel is open,
+   so they never sit over the slide-out (e.g. the OpenPowerlifting link). */
+body.panel-open .app-version,
+body.panel-open .theme-toggle{display:none}
 
 /* ── Interaction feedback: blue focus rings + row hover ──
    Uses :focus-visible so rings only show for keyboard/AT users, not

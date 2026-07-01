@@ -439,6 +439,7 @@ function openPanel(slug, name) {
   st.panelError = null;
   document.getElementById('panel-overlay').classList.add('open');
   document.getElementById('panel').classList.add('open');
+  document.body.classList.add('panel-open');
   document.body.style.overflow = 'hidden';
   renderPanel();
   fetchPanelData(slug);
@@ -447,6 +448,7 @@ function openPanel(slug, name) {
 function closePanel() {
   document.getElementById('panel-overlay').classList.remove('open');
   document.getElementById('panel').classList.remove('open');
+  document.body.classList.remove('panel-open');
   document.body.style.overflow = '';
 }
 
