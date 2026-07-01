@@ -65,11 +65,11 @@ tr:last-child td{border-bottom:none}
 .slug:hover{text-decoration:underline}
 .muted{color:var(--text-muted)}
 .wclass{font-family:ui-monospace,monospace;font-size:.8125rem;color:var(--text)}
-.lc-cat{display:inline-block;background:var(--accent-dim);color:var(--accent);border-radius:20px;padding:1px 9px;font-size:.78rem;font-weight:700;font-family:ui-monospace,monospace;letter-spacing:.02em}
+.lc-cat{display:inline-block;vertical-align:middle;background:var(--accent-dim);color:var(--accent);border-radius:20px;padding:1px 9px;font-size:.72rem;font-weight:700;font-family:ui-monospace,monospace;letter-spacing:.02em;margin-left:2px}
 .lc-lot{font-family:ui-monospace,monospace;font-size:.8125rem;color:var(--text-muted)}
 .opl-past{font-family:ui-monospace,monospace;font-size:.8125rem;color:var(--text-muted);font-style:italic}
 .total-past{font-weight:600}
-.ath-lc .ath-cat{display:inline-block;background:var(--accent-dim);color:var(--accent);border-radius:20px;padding:1px 9px;font-size:.72rem;font-weight:700;letter-spacing:.02em}
+.ath-cat{display:inline-block;vertical-align:middle;background:var(--accent-dim);color:var(--accent);border-radius:20px;padding:1px 9px;font-size:.72rem;font-weight:700;font-family:ui-monospace,monospace;letter-spacing:.02em;margin-left:4px}
 .ath-lc{font-size:.75rem;color:var(--text-muted);margin-top:3px;font-family:ui-monospace,monospace;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .ath-past-tag{display:inline-block;font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted);border:1px solid var(--border);border-radius:4px;padding:0 5px;margin-right:6px;font-family:-apple-system,BlinkMacSystemFont,sans-serif}
 .total{font-family:ui-monospace,monospace;font-size:.8125rem;font-weight:600;color:var(--text)}
@@ -216,7 +216,7 @@ tr:last-child td{border-bottom:none}
 </style>
 </head>
 <body>
-<div class="app-version">v2.5.4</div>
+<div class="app-version">v2.5.5</div>
 <div class="wrap">
   <header>
     <div class="logo">My<span>Lift</span>Squad</div>
@@ -362,7 +362,7 @@ function buildTableRows(entries) {
 
     html += '<div class="lifter-row' + (isEditing ? ' lifter-row-editing' : '') + '">';
     html += '<div class="lifter-col-main">';
-    html += '<div class="lifter-row-name">' + esc(lifter.name) + '</div>';
+    html += '<div class="lifter-row-name">' + esc(lifter.name) + lcCatHtml(lifter) + '</div>';
 
     if (isEditing) {
       var curBclass = r && r.oplSlug ? (r.confidence === 'high' ? 'bh' : r.confidence === 'medium' ? 'bm' : r.confidence === 'manual' ? 'bmanual' : 'bl') : 'bn';
@@ -452,13 +452,16 @@ function parseLotNum(v) {
   return isNaN(n) ? Infinity : n;
 }
 
-function lcMetaHtml(lifter) {
-  var bits = [];
+function lcCatHtml(lifter) {
+  // Competition category chip, shown inline beside the athlete's name.
   var cat = lcCategory(lifter);
-  if (cat) bits.push('<span class="lc-cat" title="Category at this competition (from LiftingCast)">' + esc(cat) + '</span>');
+  return cat ? ' <span class="lc-cat" title="Category at this competition (from LiftingCast)">' + esc(cat) + '</span>' : '';
+}
+
+function lcMetaHtml(lifter) {
+  // Lot number only — category is rendered next to the name via lcCatHtml.
   var lot = lcLot(lifter);
-  if (lot) bits.push('<span class="lc-lot" title="Lot number at this competition">Lot ' + esc(lot) + '</span>');
-  return bits.join(' ');
+  return lot ? '<span class="lc-lot" title="Lot number at this competition">Lot ' + esc(lot) + '</span>' : '';
 }
 
 function sortEntries(entries) {
@@ -755,13 +758,11 @@ function buildAthleteCard(lifter, r) {
   var html = '<div class="ath-card' + (clickable ? ' ath-card-clickable' : '') + '"' +
     (clickable ? ' onclick="openPanel(\'' + esc(r.oplSlug) + '\',\'' + esc(lifter.name.replace(/'/g,'\\\'')) + '\')"' : '') + '>';
   html += '<div class="ath-body">';
-  html += '<div class="ath-name">' + esc(lifter.name) + '</div>';
-  var lcCardHtml = '';
   var lcCardCat = lcCategory(lifter);
-  if (lcCardCat) lcCardHtml += '<span class="ath-cat" title="Category at this competition">' + esc(lcCardCat) + '</span>';
+  var nameCat = lcCardCat ? ' <span class="ath-cat" title="Category at this competition">' + esc(lcCardCat) + '</span>' : '';
+  html += '<div class="ath-name">' + esc(lifter.name) + nameCat + '</div>';
   var lcCardLot = lcLot(lifter);
-  if (lcCardLot) lcCardHtml += '<span title="Lot number at this competition">Lot ' + esc(lcCardLot) + '</span>';
-  if (lcCardHtml) html += '<div class="ath-lc">' + lcCardHtml + '</div>';
+  if (lcCardLot) html += '<div class="ath-lc"><span title="Lot number at this competition">Lot ' + esc(lcCardLot) + '</span></div>';
   if (r && r.oplSlug) {
     var wc = r.oplWeightClass || lifter.weightClass;
     var parts = [];
