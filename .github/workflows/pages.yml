@@ -1,0 +1,54 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one deploy at a time; newer pushes cancel in-progress runs.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+env:
+  # MAJOR.MINOR is kept in sync with the iOS/Android apps by hand.
+  # The patch number is the repo's total commit count, so it bumps on
+  # every commit automatically — no machine-local git hook required.
+  MAJOR_MINOR: "2.5"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Full history so `git rev-list --count` reflects every commit.
+          fetch-depth: 0
+
+      - name: Stamp app version
+        run: |
+          PATCH=$(git rev-list --count HEAD)
+          VERSION="${MAJOR_MINOR}.${PATCH}"
+          echo "Stamping version v$VERSION"
+          sed -i "s/__APP_VERSION__/${VERSION}/g" myliftsquad-import.html
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
