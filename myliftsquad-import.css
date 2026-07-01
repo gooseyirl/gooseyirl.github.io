@@ -207,4 +207,70 @@ tr:last-child td{border-bottom:none}
 .metric-opt{padding:5px 12px;font-size:.8125rem;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--text-muted);border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .15s,border-color .15s;line-height:1.4;white-space:nowrap}
 .metric-opt:hover{color:var(--text)}
 .metric-opt.active{color:var(--accent);border-bottom-color:var(--accent)}
-.app-version{position:fixed;top:8px;right:12px;font-size:.7rem;font-family:ui-monospace,monospace;color:var(--text-muted);opacity:.6;z-index:1000;pointer-events:none}
+.app-version{position:fixed;top:32px;right:12px;font-size:.7rem;font-family:ui-monospace,monospace;color:var(--text-muted);opacity:.6;z-index:1000;pointer-events:none}
+
+/* ── Optional theme toggle (works in both themes) ── */
+.theme-toggle{position:fixed;top:8px;right:12px;z-index:1001;background:var(--surface2);color:var(--text-muted);border:1px solid var(--border);border-radius:99px;padding:3px 11px;font-size:.68rem;font-family:ui-monospace,monospace;letter-spacing:.02em;cursor:pointer;opacity:.75;transition:opacity .15s,border-color .15s,color .15s}
+.theme-toggle:hover{opacity:1;border-color:var(--accent);color:var(--accent)}
+
+/* ═══════════════════════════════════════════════════════════════
+   "Competition Board" — opt-in theme (html.theme-neo)
+   Industrial, high-contrast, scoreboard-inspired. Overrides the
+   design tokens (so most components restyle for free) plus a few
+   targeted structural refinements.
+   ═══════════════════════════════════════════════════════════════ */
+html.theme-neo{
+  --bg:#0b0b0e;
+  --surface:#141419;
+  --surface2:#1d1d25;
+  --border:#2b2b36;
+  --accent:#ff5c38;
+  --accent-dim:rgba(255,92,56,0.14);
+  --text:#f4f1ec;
+  --text-muted:#9a968d;
+  --r:6px;
+  --rs:5px;
+}
+html.theme-neo body{
+  font-family:'Archivo',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  background:
+    radial-gradient(1100px 520px at 50% -8%, rgba(255,92,56,0.10), transparent 62%),
+    repeating-linear-gradient(135deg, rgba(255,255,255,0.012) 0 2px, transparent 2px 6px),
+    var(--bg);
+}
+html.theme-neo header{padding:44px 0 40px}
+html.theme-neo .logo{
+  font-family:'Anton',Impact,sans-serif;
+  font-weight:400;
+  font-size:2.6rem;
+  line-height:.95;
+  letter-spacing:.015em;
+  text-transform:uppercase;
+}
+html.theme-neo header p{
+  text-transform:uppercase;
+  letter-spacing:.22em;
+  font-size:.7rem;
+  margin-top:12px;
+}
+html.theme-neo .card{
+  background:linear-gradient(180deg,#17171d,#131318);
+  border-color:#26262f;
+  position:relative;
+}
+html.theme-neo .card::before{
+  content:'';position:absolute;left:0;top:0;height:100%;width:3px;
+  background:linear-gradient(180deg,var(--accent),transparent);
+  border-radius:var(--r) 0 0 var(--r);opacity:.8;
+}
+html.theme-neo .card-title{color:var(--accent);letter-spacing:.14em}
+html.theme-neo .btn-primary{
+  background:linear-gradient(180deg,#ff6a45,#ff4a22);
+  box-shadow:0 4px 18px rgba(255,92,56,0.30);
+  text-transform:uppercase;letter-spacing:.06em;font-weight:700;
+}
+html.theme-neo .logo span{color:var(--accent)}
+html.theme-neo .flight-badge,
+html.theme-neo th{letter-spacing:.08em}
+html.theme-neo .chip,
+html.theme-neo .lc-cat{font-weight:700}

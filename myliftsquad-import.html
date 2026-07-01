@@ -7,8 +7,22 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏋</text></svg>">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <link rel="stylesheet" href="myliftsquad-import.css">
+<script>
+// Apply the opt-in theme before first paint to avoid a flash, and preload
+// its fonts. Default (classic) theme is untouched when no preference is set.
+try {
+  if (localStorage.getItem('mls_theme') === 'neo') {
+    document.documentElement.classList.add('theme-neo');
+    var l = document.createElement('link');
+    l.id = 'neo-fonts'; l.rel = 'stylesheet';
+    l.href = 'https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700&display=swap';
+    document.head.appendChild(l);
+  }
+} catch (e) {}
+</script>
 </head>
 <body>
+<button id="themeToggle" class="theme-toggle" type="button" onclick="toggleTheme()">○ New look</button>
 <div class="app-version" id="appVersion">v__APP_VERSION__</div>
 <div class="wrap">
   <header>

@@ -1051,3 +1051,25 @@ if (_shareParam) {
 } else {
   render();
 }
+
+// ── Optional "Competition Board" theme ─────────────────────────────
+function ensureNeoFonts() {
+  if (document.getElementById('neo-fonts')) return;
+  var l = document.createElement('link');
+  l.id = 'neo-fonts'; l.rel = 'stylesheet';
+  l.href = 'https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700&display=swap';
+  document.head.appendChild(l);
+}
+function applyTheme(theme) {
+  var neo = theme === 'neo';
+  document.documentElement.classList.toggle('theme-neo', neo);
+  if (neo) ensureNeoFonts();
+  var btn = document.getElementById('themeToggle');
+  if (btn) btn.textContent = neo ? '● Classic look' : '○ New look';
+}
+function toggleTheme() {
+  var next = (localStorage.getItem('mls_theme') === 'neo') ? 'classic' : 'neo';
+  try { localStorage.setItem('mls_theme', next); } catch (e) {}
+  applyTheme(next);
+}
+applyTheme(localStorage.getItem('mls_theme') === 'neo' ? 'neo' : 'classic');
