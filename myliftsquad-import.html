@@ -183,6 +183,7 @@ tr:last-child td{border-bottom:none}
 .lifter-col-right{flex-shrink:0;display:flex;align-items:center;gap:6px}
 .lifter-row-name{font-size:.875rem}
 .lifter-row-meta{font-size:.8rem;margin-top:3px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lifter-row-lot{font-family:ui-monospace,monospace;font-size:.75rem;color:var(--text-muted);margin-top:2px}
 .sort-btn{background:none;border:none;color:var(--text-muted);font-size:.6875rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;cursor:pointer;padding:0;line-height:1}
 .sort-btn:hover{color:var(--text)}
 .sort-btn-active{color:var(--accent) !important}
@@ -216,7 +217,7 @@ tr:last-child td{border-bottom:none}
 </style>
 </head>
 <body>
-<div class="app-version">v2.5.5</div>
+<div class="app-version">v2.5.6</div>
 <div class="wrap">
   <header>
     <div class="logo">My<span>Lift</span>Squad</div>
@@ -363,6 +364,7 @@ function buildTableRows(entries) {
     html += '<div class="lifter-row' + (isEditing ? ' lifter-row-editing' : '') + '">';
     html += '<div class="lifter-col-main">';
     html += '<div class="lifter-row-name">' + esc(lifter.name) + lcCatHtml(lifter) + '</div>';
+    if (!isEditing) html += lcLotLineHtml(lifter);
 
     if (isEditing) {
       var curBclass = r && r.oplSlug ? (r.confidence === 'high' ? 'bh' : r.confidence === 'medium' ? 'bm' : r.confidence === 'manual' ? 'bmanual' : 'bl') : 'bn';
@@ -377,15 +379,10 @@ function buildTableRows(entries) {
       html += '</div>';
       html += '<div class="lifter-col-right"><span class="badge ' + curBclass + '">' + curBlabel + '</span></div>';
     } else if (!r) {
-      html += '<div class="lifter-row-meta">';
-      html += lcMetaHtml(lifter);
-      html += '</div>';
       html += '</div>';
       html += '<div class="lifter-col-right"><span class="badge bp">Resolving…</span></div>';
     } else if (r.oplSlug) {
       html += '<div class="lifter-row-meta">';
-      var lcm = lcMetaHtml(lifter);
-      if (lcm) html += lcm + '<span class="muted"> → </span>';
       html += '<a class="slug" href="' + oplProfileBase() + '/' + esc(r.oplSlug) + '" target="_blank" rel="noopener">' + esc(r.oplSlug) + '</a>';
       if (r.oplWeightClass) html += '<span class="muted hide-sm"> · </span><span class="opl-past hide-sm" title="Weight class from past OpenPowerlifting results">' + esc(r.oplWeightClass) + '</span>';
       if (r.oplTotal) html += '<span class="muted hide-sm"> · </span><span class="opl-past total-past hide-sm" title="Best total from past OpenPowerlifting results">' + esc(r.oplTotal) + '</span>';
@@ -396,16 +393,11 @@ function buildTableRows(entries) {
       html += '<div class="lifter-col-right"><span class="badge ' + bclass2 + '">' + blabel2 + '</span><button class="btn-add" onclick="startEdit(' + e.idx + ')" title="Change match">✎</button></div>';
     } else if (r.confidence === 'cleared') {
       html += '<div class="lifter-row-meta">';
-      var lcmC = lcMetaHtml(lifter);
-      if (lcmC) html += lcmC + '<span class="muted"> · </span>';
       html += '<span class="muted">no OPL profile</span>';
       html += '</div>';
       html += '</div>';
       html += '<div class="lifter-col-right"><span class="badge bn">No match</span><button class="btn-add" onclick="startEdit(' + e.idx + ')" title="Change match">✎</button></div>';
     } else {
-      html += '<div class="lifter-row-meta">';
-      html += lcMetaHtml(lifter);
-      html += '</div>';
       html += '</div>';
       html += '<div class="lifter-col-right"><span class="badge bn">None</span><button class="btn-add" onclick="startEdit(' + e.idx + ')">+ Add</button></div>';
     }
@@ -458,10 +450,10 @@ function lcCatHtml(lifter) {
   return cat ? ' <span class="lc-cat" title="Category at this competition (from LiftingCast)">' + esc(cat) + '</span>' : '';
 }
 
-function lcMetaHtml(lifter) {
-  // Lot number only — category is rendered next to the name via lcCatHtml.
+function lcLotLineHtml(lifter) {
+  // Lot number on its own line beneath the athlete's name.
   var lot = lcLot(lifter);
-  return lot ? '<span class="lc-lot" title="Lot number at this competition">Lot ' + esc(lot) + '</span>' : '';
+  return lot ? '<div class="lifter-row-lot" title="Lot number at this competition">Lot ' + esc(lot) + '</div>' : '';
 }
 
 function sortEntries(entries) {
@@ -782,9 +774,6 @@ function buildAthleteCard(lifter, r) {
       }
       html += '</div>';
     }
-  } else {
-    var wc2 = lifter.weightClass;
-    if (wc2) html += '<div class="ath-meta"><span class="ath-sec">' + esc(wc2) + '</span></div>';
   }
   html += '</div>';
   if (r && r.oplSlug) {
