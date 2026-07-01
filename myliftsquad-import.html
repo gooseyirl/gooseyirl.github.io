@@ -217,7 +217,7 @@ tr:last-child td{border-bottom:none}
 </style>
 </head>
 <body>
-<div class="app-version">v2.5.6</div>
+<div class="app-version">v2.5.7</div>
 <div class="wrap">
   <header>
     <div class="logo">My<span>Lift</span>Squad</div>
@@ -335,7 +335,7 @@ var st = {
   shareLoading: false,
   shareError: null,
   metric: loadPref('mls_metric', 'total'),
-  sortCol: loadPref('mls_sort_col', '') || null,
+  sortCol: loadPref('mls_sort_col', 'lot') || 'lot',
   sortDir: loadPref('mls_sort_dir', 'asc')
 };
 
@@ -959,10 +959,9 @@ function render() {
       if (st.saved) {
         html += '<div><div style="font-size:.75rem;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Sort By</div>';
         html += '<div class="src-ctrl">' +
-          '<button class="src-opt' + (!st.sortCol ? ' active' : '') + '" onclick="st.sortCol=null;savePref(\'mls_sort_col\',\'\');render()">Default</button>' +
+          '<button class="src-opt' + (st.sortCol === 'lot' ? ' active' : '') + '" onclick="setSort(\'lot\')">Lot' + (st.sortCol === 'lot' ? (st.sortDir === 'asc' ? ' ↑' : ' ↓') : '') + '</button>' +
           '<button class="src-opt' + (st.sortCol === 'name' ? ' active' : '') + '" onclick="setSort(\'name\')">Name' + (st.sortCol === 'name' ? (st.sortDir === 'asc' ? ' ↑' : ' ↓') : '') + '</button>' +
           '<button class="src-opt' + (st.sortCol === 'class' ? ' active' : '') + '" onclick="setSort(\'class\')">Class' + (st.sortCol === 'class' ? (st.sortDir === 'asc' ? ' ↑' : ' ↓') : '') + '</button>' +
-          '<button class="src-opt' + (st.sortCol === 'lot' ? ' active' : '') + '" onclick="setSort(\'lot\')">Lot' + (st.sortCol === 'lot' ? (st.sortDir === 'asc' ? ' ↑' : ' ↓') : '') + '</button>' +
           '<button class="src-opt' + (st.sortCol === 'total' ? ' active' : '') + '" onclick="setSort(\'total\')">' + (st.metric === 'gl' ? 'GL Points' : 'Total') + (st.sortCol === 'total' ? (st.sortDir === 'asc' ? ' ↑' : ' ↓') : '') + '</button>' +
           '</div></div>';
       }
