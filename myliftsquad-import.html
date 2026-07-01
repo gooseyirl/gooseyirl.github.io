@@ -65,6 +65,8 @@ tr:last-child td{border-bottom:none}
 .slug:hover{text-decoration:underline}
 .muted{color:var(--text-muted)}
 .wclass{font-family:ui-monospace,monospace;font-size:.8125rem;color:var(--text)}
+.lc-lot{font-family:ui-monospace,monospace;font-size:.8125rem;color:var(--text-muted)}
+.ath-lc{font-size:.75rem;color:var(--text-muted);margin-top:2px;font-family:ui-monospace,monospace}
 .total{font-family:ui-monospace,monospace;font-size:.8125rem;font-weight:600;color:var(--text)}
 .bmanual{background:rgba(108,143,255,.14);color:var(--accent)}
 .btn-add{background:none;border:1px solid var(--border);border-radius:4px;color:var(--text-muted);font-size:.7rem;padding:2px 7px;cursor:pointer;margin-left:6px;vertical-align:middle;line-height:1.4}
@@ -209,7 +211,7 @@ tr:last-child td{border-bottom:none}
 </style>
 </head>
 <body>
-<div class="app-version">v2.5.2</div>
+<div class="app-version">v2.5.3</div>
 <div class="wrap">
   <header>
     <div class="logo">My<span>Lift</span>Squad</div>
@@ -371,13 +373,14 @@ function buildTableRows(entries) {
       html += '<div class="lifter-col-right"><span class="badge ' + curBclass + '">' + curBlabel + '</span></div>';
     } else if (!r) {
       html += '<div class="lifter-row-meta">';
-      if (lifter.weightClass) html += '<span class="wclass">' + esc(lifter.weightClass) + '</span>';
+      html += lcMetaHtml(lifter);
       html += '</div>';
       html += '</div>';
       html += '<div class="lifter-col-right"><span class="badge bp">Resolving…</span></div>';
     } else if (r.oplSlug) {
       html += '<div class="lifter-row-meta">';
-      if (lifter.weightClass) html += '<span class="wclass">' + esc(lifter.weightClass) + '</span><span class="muted"> → </span>';
+      var lcm = lcMetaHtml(lifter);
+      if (lcm) html += lcm + '<span class="muted"> → </span>';
       html += '<a class="slug" href="' + oplProfileBase() + '/' + esc(r.oplSlug) + '" target="_blank" rel="noopener">' + esc(r.oplSlug) + '</a>';
       if (r.oplWeightClass) html += '<span class="muted hide-sm"> · </span><span class="wclass hide-sm">' + esc(r.oplWeightClass) + '</span>';
       if (r.oplTotal) html += '<span class="muted hide-sm"> · </span><span class="total hide-sm">' + esc(r.oplTotal) + '</span>';
@@ -388,14 +391,15 @@ function buildTableRows(entries) {
       html += '<div class="lifter-col-right"><span class="badge ' + bclass2 + '">' + blabel2 + '</span><button class="btn-add" onclick="startEdit(' + e.idx + ')" title="Change match">✎</button></div>';
     } else if (r.confidence === 'cleared') {
       html += '<div class="lifter-row-meta">';
-      if (lifter.weightClass) html += '<span class="wclass">' + esc(lifter.weightClass) + '</span>';
-      html += '<span class="muted"> · no OPL profile</span>';
+      var lcmC = lcMetaHtml(lifter);
+      if (lcmC) html += lcmC + '<span class="muted"> · </span>';
+      html += '<span class="muted">no OPL profile</span>';
       html += '</div>';
       html += '</div>';
       html += '<div class="lifter-col-right"><span class="badge bn">No match</span><button class="btn-add" onclick="startEdit(' + e.idx + ')" title="Change match">✎</button></div>';
     } else {
       html += '<div class="lifter-row-meta">';
-      if (lifter.weightClass) html += '<span class="wclass">' + esc(lifter.weightClass) + '</span>';
+      html += lcMetaHtml(lifter);
       html += '</div>';
       html += '</div>';
       html += '<div class="lifter-col-right"><span class="badge bn">None</span><button class="btn-add" onclick="startEdit(' + e.idx + ')">+ Add</button></div>';
@@ -425,6 +429,33 @@ function setSort(col) {
   render();
 }
 
+function lcCategory(lifter) {
+  // Competition category from LiftingCast, e.g. "M-105", "F-63"
+  if (!lifter || !lifter.weightClass) return '';
+  var g = (lifter.gender || '').toUpperCase().charAt(0);
+  return (g === 'M' || g === 'F') ? g + '-' + lifter.weightClass : lifter.weightClass;
+}
+
+function lcLot(lifter) {
+  if (!lifter || lifter.lot === undefined || lifter.lot === null || lifter.lot === '') return '';
+  return String(lifter.lot);
+}
+
+function parseLotNum(v) {
+  if (v === undefined || v === null || v === '') return Infinity; // unset sorts last
+  var n = parseFloat(String(v).replace(/[^0-9.]/g, ''));
+  return isNaN(n) ? Infinity : n;
+}
+
+function lcMetaHtml(lifter) {
+  var bits = [];
+  var cat = lcCategory(lifter);
+  if (cat) bits.push('<span class="wclass">' + esc(cat) + '</span>');
+  var lot = lcLot(lifter);
+  if (lot) bits.push('<span class="lc-lot">Lot ' + esc(lot) + '</span>');
+  return bits.join('<span class="muted"> · </span>');
+}
+
 function sortEntries(entries) {
   if (!st.sortCol) return entries;
   var dir = st.sortDir === 'asc' ? 1 : -1;
@@ -435,6 +466,11 @@ function sortEntries(entries) {
     if (st.sortCol === 'class') {
       var wa = parseWc(a.lifter.weightClass), wb = parseWc(b.lifter.weightClass);
       if (wa !== wb) return dir * (wa - wb);
+      return a.lifter.name.localeCompare(b.lifter.name);
+    }
+    if (st.sortCol === 'lot') {
+      var la = parseLotNum(a.lifter.lot), lb = parseLotNum(b.lifter.lot);
+      if (la !== lb) return dir * (la - lb);
       return a.lifter.name.localeCompare(b.lifter.name);
     }
     if (st.sortCol === 'total') {
@@ -469,7 +505,7 @@ function buildFlightsHTML() {
     html += '</div>';
     html += '<div class="lifter-list">';
     html += '<div class="lifter-list-header">';
-    html += '<div class="lifter-col-main">' + thSort('Lifter', 'name') + '<span style="opacity:.3;margin:0 8px">·</span>' + thSort('Class', 'class') + '</div>';
+    html += '<div class="lifter-col-main">' + thSort('Lifter', 'name') + '<span style="opacity:.3;margin:0 8px">·</span>' + thSort('Class', 'class') + '<span style="opacity:.3;margin:0 8px">·</span>' + thSort('Lot', 'lot') + '</div>';
     html += '<div class="lifter-col-right" style="display:flex;align-items:center;gap:12px"><span style="font-size:.6875rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted)">Confidence</span>' + thSort(st.metric === 'gl' ? 'GL Pts' : 'Total', 'total') + '</div>';
     html += '</div>';
     html += buildTableRows(sortEntries(entries));
@@ -715,6 +751,12 @@ function buildAthleteCard(lifter, r) {
     (clickable ? ' onclick="openPanel(\'' + esc(r.oplSlug) + '\',\'' + esc(lifter.name.replace(/'/g,'\\\'')) + '\')"' : '') + '>';
   html += '<div class="ath-body">';
   html += '<div class="ath-name">' + esc(lifter.name) + '</div>';
+  var lcCardParts = [];
+  var lcCardCat = lcCategory(lifter);
+  if (lcCardCat) lcCardParts.push(esc(lcCardCat));
+  var lcCardLot = lcLot(lifter);
+  if (lcCardLot) lcCardParts.push('Lot ' + esc(lcCardLot));
+  if (lcCardParts.length) html += '<div class="ath-lc">' + lcCardParts.join(' · ') + '</div>';
   if (r && r.oplSlug) {
     var wc = r.oplWeightClass || lifter.weightClass;
     var parts = [];
@@ -925,6 +967,7 @@ function render() {
           '<button class="src-opt' + (!st.sortCol ? ' active' : '') + '" onclick="st.sortCol=null;savePref(\'mls_sort_col\',\'\');render()">Default</button>' +
           '<button class="src-opt' + (st.sortCol === 'name' ? ' active' : '') + '" onclick="setSort(\'name\')">Name' + (st.sortCol === 'name' ? (st.sortDir === 'asc' ? ' ↑' : ' ↓') : '') + '</button>' +
           '<button class="src-opt' + (st.sortCol === 'class' ? ' active' : '') + '" onclick="setSort(\'class\')">Class' + (st.sortCol === 'class' ? (st.sortDir === 'asc' ? ' ↑' : ' ↓') : '') + '</button>' +
+          '<button class="src-opt' + (st.sortCol === 'lot' ? ' active' : '') + '" onclick="setSort(\'lot\')">Lot' + (st.sortCol === 'lot' ? (st.sortDir === 'asc' ? ' ↑' : ' ↓') : '') + '</button>' +
           '<button class="src-opt' + (st.sortCol === 'total' ? ' active' : '') + '" onclick="setSort(\'total\')">' + (st.metric === 'gl' ? 'GL Points' : 'Total') + (st.sortCol === 'total' ? (st.sortDir === 'asc' ? ' ↑' : ' ↓') : '') + '</button>' +
           '</div></div>';
       }
