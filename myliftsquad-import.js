@@ -96,6 +96,9 @@ var st = {
   resolvedCount: 0,
   editingIdx: -1,
   editingUrl: '',
+  editCandidates: null,
+  editLoading: false,
+  editManual: false,
   lookupError: null,
   sortCol: null,
   sortDir: 'asc',
@@ -131,6 +134,65 @@ function groupByFlight(lifters) {
   return g;
 }
 
+// Edit UI for one athlete: the top matches as one-click options, plus a way
+// to paste a profile URL or slug when none of them is the right person.
+function buildEditPicker(idx, r) {
+  var html = '<div class="edit-panel">';
+
+  if (st.editManual) {
+    html += '<div class="edit-row">';
+    html += '<input type="url" id="eurl-' + idx + '" class="edit-input" placeholder="https://www.openpowerlifting.org/u/… or slug" value="' + esc(st.editingUrl) + '">';
+    html += '<button id="elookup-' + idx + '" class="btn-sm btn-sm-primary" onclick="doLookup(' + idx + ')">Lookup</button>';
+    html += '<button class="btn-sm btn-sm-ghost" onclick="backToCandidates()" title="Back to suggested matches">Back</button>';
+    html += '<button class="btn-sm btn-sm-ghost" onclick="cancelEdit()" title="Cancel">✕</button>';
+    html += '</div>';
+    html += '</div>';
+    return html;
+  }
+
+  if (st.editLoading) {
+    html += '<div class="cand-status"><span class="badge bp">Searching…</span></div>';
+  } else {
+    var cands = st.editCandidates || [];
+    if (cands.length) {
+      html += '<div class="cand-list">';
+      for (var ci = 0; ci < cands.length; ci++) {
+        var c = cands[ci];
+        var current = !!(r && r.oplSlug && r.oplSlug === c.slug);
+        html += '<button class="cand' + (current ? ' cand-current' : '') + '" onclick="chooseCandidate(' + idx + ',' + ci + ')"' +
+          (current ? ' title="Currently selected"' : '') + '>';
+        html += '<span class="cand-main">';
+        html += '<span class="cand-name">' + esc(c.name || c.slug) + '</span>';
+        html += '<span class="cand-slug">' + esc(c.slug) + '</span>';
+        html += '</span>';
+
+        var meta = [];
+        if (c.weightClass) meta.push(esc(c.weightClass));
+        var metric = st.metric === 'gl' ? c.glPoints : c.total;
+        if (metric) meta.push(esc(metric) + (st.metric === 'gl' ? ' GL' : ''));
+        if (c.federation) meta.push(esc(c.federation));
+        html += '<span class="cand-meta">' + meta.join(' · ') + '</span>';
+
+        var bclass = c.confidence === 'high' ? 'bh' : c.confidence === 'medium' ? 'bm' : 'bl';
+        html += '<span class="badge ' + bclass + '">' + esc(c.confidence) + '</span>';
+        html += '</button>';
+      }
+      html += '</div>';
+    } else {
+      html += '<div class="cand-status">No ' + (oplSource === 'ipf' ? 'OpenIPF' : 'OpenPowerlifting') + ' matches for this name.</div>';
+    }
+
+    html += '<div class="cand-actions">';
+    html += '<button class="btn-sm btn-sm-ghost" onclick="enterManualEdit(' + idx + ')">Enter URL or slug…</button>';
+    html += '<button class="btn-sm btn-sm-ghost" onclick="clearMatch(' + idx + ')" title="Mark as no OpenPowerlifting profile">No match</button>';
+    html += '<button class="btn-sm btn-sm-ghost" onclick="cancelEdit()" title="Cancel">✕</button>';
+    html += '</div>';
+  }
+
+  html += '</div>';
+  return html;
+}
+
 function buildTableRows(entries) {
   var html = '';
   for (var i = 0; i < entries.length; i++) {
@@ -147,12 +209,7 @@ function buildTableRows(entries) {
     if (isEditing) {
       var curBclass = r && r.oplSlug ? (r.confidence === 'high' ? 'bh' : r.confidence === 'medium' ? 'bm' : r.confidence === 'manual' ? 'bmanual' : 'bl') : 'bn';
       var curBlabel = r && r.oplSlug ? (r.confidence === 'manual' ? 'Manual' : r.confidence) : 'None';
-      html += '<div class="edit-row" style="margin-top:6px">';
-      html += '<input type="url" id="eurl-' + e.idx + '" class="edit-input" placeholder="https://www.openpowerlifting.org/u/…" value="' + esc(st.editingUrl) + '">';
-      html += '<button id="elookup-' + e.idx + '" class="btn-sm btn-sm-primary" onclick="doLookup(' + e.idx + ')">Lookup</button>';
-      html += '<button class="btn-sm btn-sm-ghost" onclick="clearMatch(' + e.idx + ')" title="Mark as no OpenPowerlifting profile">No match</button>';
-      html += '<button class="btn-sm btn-sm-ghost" onclick="cancelEdit()" title="Cancel">✕</button>';
-      html += '</div>';
+      html += buildEditPicker(e.idx, r);
       if (st.lookupError) html += '<p class="lookup-err">' + esc(st.lookupError) + '</p>';
       html += '</div>';
       html += '<div class="lifter-col-right"><span class="badge ' + curBclass + '">' + curBlabel + '</span></div>';
@@ -1043,10 +1100,50 @@ async function doResolveAll() {
   }
 }
 
-function startEdit(idx) {
+// /api/candidates walks every search hit, so people sharing a name (David
+// Walsh #1/#2/#3) all come back. Falls back to the resolver's shortlist if the
+// API predates that endpoint, so this page can deploy on its own.
+async function fetchCandidates(lifter) {
+  var qs = 'name=' + encodeURIComponent(lifter.name) +
+    '&gender=' + encodeURIComponent(lifter.gender || 'MALE') + '&source=' + oplSource;
+  try {
+    var res = await fetch(API + '/api/candidates?' + qs + '&limit=5');
+    if (res.ok) {
+      var data = await res.json();
+      if (data.results && data.results.length) return data.results;
+    }
+  } catch (e) { /* fall through */ }
+  try {
+    var fallback = await fetch(API + '/api/resolve?' + qs);
+    var fallbackData = await fallback.json();
+    return fallbackData.results || [];
+  } catch (e) {
+    return [];
+  }
+}
+
+// Editing an athlete offers those matches as one-click options, so correcting a
+// bad match is usually a click rather than hunting down a profile URL.
+async function startEdit(idx) {
   var r = st.resolved[idx];
   st.editingIdx = idx;
   st.editingUrl = (r && r.oplSlug) ? oplProfileBase() + '/' + r.oplSlug : '';
+  st.lookupError = null;
+  st.editManual = false;
+  st.editCandidates = null;
+  st.editLoading = true;
+  render();
+
+  var candidates = await fetchCandidates(st.lifters[idx]);
+  // The row may have been cancelled, or another opened, while this was in flight.
+  if (st.editingIdx !== idx) return;
+  st.editCandidates = candidates;
+  st.editLoading = false;
+  render();
+}
+
+function enterManualEdit(idx) {
+  st.editManual = true;
   st.lookupError = null;
   render();
   setTimeout(function() {
@@ -1055,9 +1152,46 @@ function startEdit(idx) {
   }, 0);
 }
 
-function cancelEdit() {
-  st.editingIdx = -1;
+function backToCandidates() {
+  st.editManual = false;
   st.lookupError = null;
+  render();
+}
+
+function chooseCandidate(idx, ci) {
+  var c = st.editCandidates && st.editCandidates[ci];
+  if (!c) return;
+  st.resolved[idx] = {
+    idx: idx,
+    oplName: c.name || '',
+    oplSlug: c.slug || '',
+    // Picked by a human, so it outranks whatever the name match scored.
+    confidence: 'manual',
+    oplWeightClass: c.weightClass || '',
+    oplTotal: c.total || '',
+    oplGlPoints: c.glPoints || '',
+    oplSquat: c.squat || '',
+    oplBench: c.bench || '',
+    oplDeadlift: c.deadlift || '',
+    oplFederation: c.federation || '',
+    oplEquipment: c.equipment || '',
+    dataSource: oplSource
+  };
+  closeEdit();
+  st.saved = false;
+  render();
+}
+
+function closeEdit() {
+  st.editingIdx = -1;
+  st.editCandidates = null;
+  st.editLoading = false;
+  st.editManual = false;
+  st.lookupError = null;
+}
+
+function cancelEdit() {
+  closeEdit();
   render();
 }
 
@@ -1069,8 +1203,7 @@ function clearMatch(idx) {
     oplWeightClass: '', oplTotal: '', oplGlPoints: '', oplSquat: '',
     oplBench: '', oplDeadlift: '', oplFederation: '', oplEquipment: '', dataSource: ''
   };
-  st.editingIdx = -1;
-  st.lookupError = null;
+  closeEdit();
   st.saved = false;
   render();
 }
@@ -1114,8 +1247,7 @@ async function doLookup(idx) {
       oplEquipment: data.equipment || '',
       dataSource: oplSource
     };
-    st.editingIdx = -1;
-    st.lookupError = null;
+    closeEdit();
     st.saved = false;
     render();
   } catch (err) {
