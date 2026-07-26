@@ -709,9 +709,11 @@ async function loadFromShareCode(code) {
     st.activeFlight = null;
     st.saved = true;
     st.shareCode = null;
+    // Keep the shared meet so the recipient can come back to it from Saved
+    // Meets without the link. The Codes button in the header reaches the
+    // import codes, so the panel doesn't need to open over the entry list.
+    saveToHistory();
     render();
-    // The code is the point of a share link, so slide it straight out.
-    if (st.bundleCodes && st.bundleCodes.length) openCodesPanel();
   } catch(err) {
     st.phase = 'error';
     st.error = err.message || String(err);
@@ -1002,6 +1004,11 @@ function render() {
       // One right-aligned group so the actions line up as a uniform set.
       html += '<div class="meet-actions">';
       if (st.saved) {
+        // Once saved there is no summary card, so this is the way back to
+        // codes that already exist — including for share-link recipients.
+        if (st.bundleCodes && st.bundleCodes.length) {
+          html += '<button class="btn-act" onclick="openCodesPanel()">Code' + (st.bundleCodes.length > 1 ? 's' : '') + '</button>';
+        }
         html += '<button class="btn-act btn-share" onclick="doShare()" ' + (st.shareLoading ? 'disabled' : '') + '>' + (st.shareLoading ? 'Sharing…' : 'Share') + '</button>';
         html += '<button class="btn-act btn-edit" onclick="st.saved=false;st.shareCode=null;render()">Edit</button>';
       } else {
