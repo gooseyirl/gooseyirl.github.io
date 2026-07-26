@@ -83,12 +83,17 @@ tr:last-child td{border-bottom:none}
 .btn-add{background:none;border:1px solid var(--border);border-radius:4px;color:var(--text-muted);font-size:.7rem;padding:2px 7px;cursor:pointer;margin-left:6px;vertical-align:middle;line-height:1.4}
 .btn-add:hover{border-color:var(--accent);color:var(--accent)}
 .edit-cell{padding:8px 14px !important}
-.edit-panel{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+.panel-edit{display:flex;flex-direction:column;gap:20px;padding:22px 20px}
 .edit-row{display:flex;gap:6px;align-items:center}
 .cand-list{display:flex;flex-direction:column;gap:6px}
 .cand{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:12px;width:100%;text-align:left;background:var(--bg);border:1px solid var(--border);border-radius:var(--rs);padding:8px 12px;cursor:pointer;transition:border-color .15s,background .15s}
 .cand:hover{border-color:var(--accent);background:var(--surface2)}
-.cand-current{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
+/* The profile already in use: shown for reference, not clickable. */
+.cand-selected{cursor:default;border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
+.cand-selected:hover{background:var(--bg)}
+.panel-edit .set-group{width:100%;gap:8px}
+.panel-edit .cand-list{width:100%}
+.panel-edit .edit-row{width:100%}
 .cand-main{display:flex;flex-direction:column;min-width:0}
 .cand-name{font-size:.875rem;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cand-slug{font-family:ui-monospace,monospace;font-size:.75rem;color:var(--accent);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

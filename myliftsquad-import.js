@@ -98,7 +98,6 @@ var st = {
   editingUrl: '',
   editCandidates: null,
   editLoading: false,
-  editManual: false,
   lookupError: null,
   sortCol: null,
   sortDir: 'asc',
@@ -134,60 +133,94 @@ function groupByFlight(lifters) {
   return g;
 }
 
-// Edit UI for one athlete: the top matches as one-click options, plus a way
-// to paste a profile URL or slug when none of them is the right person.
-function buildEditPicker(idx, r) {
-  var html = '<div class="edit-panel">';
+// One profile as a card. Clickable when it is an alternative to switch to;
+// static when it is the profile already selected.
+function profileCardHtml(c, opts) {
+  var confidence = c.confidence || 'none';
+  var label = confidence === 'manual' ? 'Manual' : confidence;
+  var bclass = confidence === 'high' ? 'bh'
+    : confidence === 'medium' ? 'bm'
+    : confidence === 'manual' ? 'bmanual'
+    : confidence === 'low' ? 'bl' : 'bn';
 
-  if (st.editManual) {
-    html += '<div class="edit-row">';
-    html += '<input type="url" id="eurl-' + idx + '" class="edit-input" placeholder="https://www.openpowerlifting.org/u/… or slug" value="' + esc(st.editingUrl) + '">';
-    html += '<button id="elookup-' + idx + '" class="btn-sm btn-sm-primary" onclick="doLookup(' + idx + ')">Lookup</button>';
-    html += '<button class="btn-sm btn-sm-ghost" onclick="backToCandidates()" title="Back to suggested matches">Back</button>';
-    html += '<button class="btn-sm btn-sm-ghost" onclick="cancelEdit()" title="Cancel">✕</button>';
-    html += '</div>';
-    html += '</div>';
-    return html;
+  var meta = [];
+  if (c.weightClass) meta.push(esc(c.weightClass));
+  var metric = st.metric === 'gl' ? c.glPoints : c.total;
+  if (metric) meta.push(esc(metric) + (st.metric === 'gl' ? ' GL' : ''));
+  if (c.federation) meta.push(esc(c.federation));
+
+  var inner = '<span class="cand-main">' +
+    '<span class="cand-name">' + esc(c.name || c.slug) + '</span>' +
+    '<span class="cand-slug">' + esc(c.slug) + '</span>' +
+    '</span>' +
+    '<span class="cand-meta">' + meta.join(' · ') + '</span>' +
+    '<span class="badge ' + bclass + '">' + esc(label) + '</span>';
+
+  if (opts && opts.onclick) {
+    return '<button class="cand" onclick="' + opts.onclick + '">' + inner + '</button>';
   }
+  return '<div class="cand cand-selected">' + inner + '</div>';
+}
 
+// Edit panel: the profile in use at the top, up to three alternatives under
+// it, then a box for pasting a profile URL or slug.
+function buildEditPanelBody() {
+  var idx = st.editingIdx;
+  var lifter = st.lifters[idx];
+  var r = st.resolved[idx];
+  if (!lifter) return '';
+
+  var html = '<div class="panel-edit">';
+
+  html += '<div class="set-group"><div class="set-label">Selected profile</div>';
+  if (r && r.oplSlug) {
+    html += profileCardHtml({
+      name: r.oplName, slug: r.oplSlug, confidence: r.confidence,
+      weightClass: r.oplWeightClass, total: r.oplTotal,
+      glPoints: r.oplGlPoints, federation: r.oplFederation
+    }, null);
+  } else {
+    html += '<div class="cand-status">' +
+      (r && r.confidence === 'cleared' ? 'Marked as having no profile.' : 'No profile selected yet.') +
+      '</div>';
+  }
+  html += '</div>';
+
+  html += '<div class="set-group"><div class="set-label">Alternatives</div>';
   if (st.editLoading) {
     html += '<div class="cand-status"><span class="badge bp">Searching…</span></div>';
   } else {
+    var alts = [];
     var cands = st.editCandidates || [];
-    if (cands.length) {
+    for (var ci = 0; ci < cands.length && alts.length < 3; ci++) {
+      if (r && r.oplSlug && cands[ci].slug === r.oplSlug) continue;
+      alts.push({ c: cands[ci], ci: ci });
+    }
+    if (alts.length) {
       html += '<div class="cand-list">';
-      for (var ci = 0; ci < cands.length; ci++) {
-        var c = cands[ci];
-        var current = !!(r && r.oplSlug && r.oplSlug === c.slug);
-        html += '<button class="cand' + (current ? ' cand-current' : '') + '" onclick="chooseCandidate(' + idx + ',' + ci + ')"' +
-          (current ? ' title="Currently selected"' : '') + '>';
-        html += '<span class="cand-main">';
-        html += '<span class="cand-name">' + esc(c.name || c.slug) + '</span>';
-        html += '<span class="cand-slug">' + esc(c.slug) + '</span>';
-        html += '</span>';
-
-        var meta = [];
-        if (c.weightClass) meta.push(esc(c.weightClass));
-        var metric = st.metric === 'gl' ? c.glPoints : c.total;
-        if (metric) meta.push(esc(metric) + (st.metric === 'gl' ? ' GL' : ''));
-        if (c.federation) meta.push(esc(c.federation));
-        html += '<span class="cand-meta">' + meta.join(' · ') + '</span>';
-
-        var bclass = c.confidence === 'high' ? 'bh' : c.confidence === 'medium' ? 'bm' : 'bl';
-        html += '<span class="badge ' + bclass + '">' + esc(c.confidence) + '</span>';
-        html += '</button>';
+      for (var ai = 0; ai < alts.length; ai++) {
+        html += profileCardHtml(alts[ai].c, { onclick: 'chooseCandidate(' + idx + ',' + alts[ai].ci + ')' });
       }
       html += '</div>';
     } else {
-      html += '<div class="cand-status">No ' + (oplSource === 'ipf' ? 'OpenIPF' : 'OpenPowerlifting') + ' matches for this name.</div>';
+      html += '<div class="cand-status">No other ' +
+        (oplSource === 'ipf' ? 'OpenIPF' : 'OpenPowerlifting') + ' profiles match this name.</div>';
     }
-
-    html += '<div class="cand-actions">';
-    html += '<button class="btn-sm btn-sm-ghost" onclick="enterManualEdit(' + idx + ')">Enter URL or slug…</button>';
-    html += '<button class="btn-sm btn-sm-ghost" onclick="clearMatch(' + idx + ')" title="Mark as no OpenPowerlifting profile">No match</button>';
-    html += '<button class="btn-sm btn-sm-ghost" onclick="cancelEdit()" title="Cancel">✕</button>';
-    html += '</div>';
   }
+  html += '</div>';
+
+  html += '<div class="set-group"><div class="set-label">Enter a profile URL or slug</div>';
+  html += '<div class="edit-row">';
+  html += '<input type="url" id="eurl-' + idx + '" class="edit-input" placeholder="openpowerlifting.org/u/… or slug" value="' + esc(st.editingUrl) + '">';
+  html += '<button id="elookup-' + idx + '" class="btn-sm btn-sm-primary" onclick="doLookup(' + idx + ')">Lookup</button>';
+  html += '</div>';
+  if (st.lookupError) html += '<p class="lookup-err">' + esc(st.lookupError) + '</p>';
+  html += '</div>';
+
+  html += '<div class="cand-actions">';
+  html += '<button class="btn-sm btn-sm-ghost" onclick="clearMatch(' + idx + ')" title="Mark as having no OpenPowerlifting profile">No match</button>';
+  html += '<button class="btn-sm btn-sm-ghost" onclick="cancelEdit()">Cancel</button>';
+  html += '</div>';
 
   html += '</div>';
   return html;
@@ -201,19 +234,14 @@ function buildTableRows(entries) {
     var r = st.resolved[e.idx];
     var isEditing = st.editingIdx === e.idx;
 
+    // Editing happens in the slide-out panel; the row just marks itself as the
+    // one being edited.
     html += '<div class="lifter-row' + (isEditing ? ' lifter-row-editing' : '') + '">';
     html += '<div class="lifter-col-main">';
     html += '<div class="lifter-row-name">' + esc(lifter.name) + lcCatHtml(lifter) + '</div>';
-    if (!isEditing) html += lcLotLineHtml(lifter);
+    html += lcLotLineHtml(lifter);
 
-    if (isEditing) {
-      var curBclass = r && r.oplSlug ? (r.confidence === 'high' ? 'bh' : r.confidence === 'medium' ? 'bm' : r.confidence === 'manual' ? 'bmanual' : 'bl') : 'bn';
-      var curBlabel = r && r.oplSlug ? (r.confidence === 'manual' ? 'Manual' : r.confidence) : 'None';
-      html += buildEditPicker(e.idx, r);
-      if (st.lookupError) html += '<p class="lookup-err">' + esc(st.lookupError) + '</p>';
-      html += '</div>';
-      html += '<div class="lifter-col-right"><span class="badge ' + curBclass + '">' + curBlabel + '</span></div>';
-    } else if (!r) {
+    if (!r) {
       html += '</div>';
       html += '<div class="lifter-col-right"><span class="badge bp">Resolving…</span></div>';
     } else if (r.oplSlug) {
@@ -680,7 +708,13 @@ function closePanel() {
   document.getElementById('panel').classList.remove('open');
   document.body.classList.remove('panel-open');
   document.body.style.overflow = '';
+  var wasEditing = st.panelMode === 'edit';
   st.panelMode = null;
+  if (wasEditing) {
+    closeEdit();
+    // Redraw so the edited row drops its highlight and shows the new match.
+    render();
+  }
 }
 
 async function fetchPanelData(slug) {
@@ -708,6 +742,11 @@ function renderPanel() {
   html += '</div></div>';
   if (st.panelMode === 'settings') {
     html += '<div class="panel-settings">' + settingsBodyHtml() + '</div>';
+    el.innerHTML = html;
+    return;
+  }
+  if (st.panelMode === 'edit') {
+    html += buildEditPanelBody();
     el.innerHTML = html;
     return;
   }
@@ -1122,40 +1161,26 @@ async function fetchCandidates(lifter) {
   }
 }
 
-// Editing an athlete offers those matches as one-click options, so correcting a
-// bad match is usually a click rather than hunting down a profile URL.
+// Editing slides out a panel with the current profile, the alternatives and a
+// URL box, so correcting a match is a click rather than a hunt for a URL.
 async function startEdit(idx) {
-  var r = st.resolved[idx];
   st.editingIdx = idx;
-  st.editingUrl = (r && r.oplSlug) ? oplProfileBase() + '/' + r.oplSlug : '';
+  st.editingUrl = '';
   st.lookupError = null;
-  st.editManual = false;
   st.editCandidates = null;
   st.editLoading = true;
+  st.panelMode = 'edit';
+  st.panelSlug = null;
+  st.panelName = st.lifters[idx] ? st.lifters[idx].name : 'Edit match';
   render();
+  showPanel();
 
   var candidates = await fetchCandidates(st.lifters[idx]);
-  // The row may have been cancelled, or another opened, while this was in flight.
-  if (st.editingIdx !== idx) return;
+  // The panel may have been closed, or another athlete opened, in the meantime.
+  if (st.editingIdx !== idx || st.panelMode !== 'edit') return;
   st.editCandidates = candidates;
   st.editLoading = false;
-  render();
-}
-
-function enterManualEdit(idx) {
-  st.editManual = true;
-  st.lookupError = null;
-  render();
-  setTimeout(function() {
-    var el = document.getElementById('eurl-' + idx);
-    if (el) { el.focus(); el.select(); }
-  }, 0);
-}
-
-function backToCandidates() {
-  st.editManual = false;
-  st.lookupError = null;
-  render();
+  renderPanel();
 }
 
 function chooseCandidate(idx, ci) {
@@ -1177,22 +1202,19 @@ function chooseCandidate(idx, ci) {
     oplEquipment: c.equipment || '',
     dataSource: oplSource
   };
-  closeEdit();
   st.saved = false;
-  render();
+  closePanel();
 }
 
 function closeEdit() {
   st.editingIdx = -1;
   st.editCandidates = null;
   st.editLoading = false;
-  st.editManual = false;
   st.lookupError = null;
 }
 
 function cancelEdit() {
-  closeEdit();
-  render();
+  closePanel();
 }
 
 function clearMatch(idx) {
@@ -1203,15 +1225,16 @@ function clearMatch(idx) {
     oplWeightClass: '', oplTotal: '', oplGlPoints: '', oplSquat: '',
     oplBench: '', oplDeadlift: '', oplFederation: '', oplEquipment: '', dataSource: ''
   };
-  closeEdit();
   st.saved = false;
-  render();
+  closePanel();
 }
 
 async function doLookup(idx) {
   var input = document.getElementById('eurl-' + idx);
   var raw = input ? input.value.trim() : '';
-  if (!raw) { st.lookupError = 'Paste an OPL URL or slug first'; render(); return; }
+  // Held in state so re-rendering the panel doesn't discard what was typed.
+  st.editingUrl = raw;
+  if (!raw) { st.lookupError = 'Paste an OPL URL or slug first'; renderPanel(); return; }
 
   // Extract slug from URL or accept bare slug
   var slug = raw;
@@ -1219,14 +1242,13 @@ async function doLookup(idx) {
   if (m) slug = m[1];
   else if (!/^[A-Za-z0-9]+$/.test(raw)) {
     st.lookupError = 'Paste a profile URL or just the slug';
-    render();
+    renderPanel();
     return;
   }
 
   var btn = document.getElementById('elookup-' + idx);
   if (btn) btn.disabled = true;
   st.lookupError = null;
-  render();
 
   try {
     var res = await fetch(API + '/api/lookup?slug=' + encodeURIComponent(slug.toLowerCase()) + '&source=' + oplSource);
@@ -1247,13 +1269,12 @@ async function doLookup(idx) {
       oplEquipment: data.equipment || '',
       dataSource: oplSource
     };
-    closeEdit();
     st.saved = false;
-    render();
+    closePanel();
   } catch (err) {
     st.lookupError = err.message || String(err);
     if (btn) btn.disabled = false;
-    render();
+    renderPanel();
   }
 }
 
