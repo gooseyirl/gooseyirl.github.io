@@ -402,7 +402,8 @@ async function doShare() {
     // Also store web tool state for browser sharing
     var state = {
       meetId: st.meetId, lcUrl: st.lcUrl, nameOverride: st.nameOverride,
-      meet: st.meet, lifters: st.lifters, resolved: st.resolved, bundleCodes: bundleCodes
+      meet: st.meet, provider: st.provider, lifters: st.lifters, resolved: st.resolved,
+      bundleCodes: bundleCodes
     };
     var res = await fetch(API + '/api/share', {
       method: 'POST',
@@ -421,15 +422,72 @@ async function doShare() {
   }
 }
 
-function openSharePanel() {
-  st.panelMode = 'share';
-  st.panelSlug = null;
-  st.panelName = st.meet && st.meet.name ? st.meet.name : 'Share';
+function showPanel() {
   document.getElementById('panel-overlay').classList.add('open');
   document.getElementById('panel').classList.add('open');
   document.body.classList.add('panel-open');
   document.body.style.overflow = 'hidden';
   renderPanel();
+}
+
+function openSharePanel() {
+  st.panelMode = 'share';
+  st.panelSlug = null;
+  st.panelName = st.meet && st.meet.name ? st.meet.name : 'Share';
+  showPanel();
+}
+
+// Import codes slide out in the panel rather than sitting at the foot of the
+// page. Same body as sharing, minus the share link (there is no share code
+// unless the user actually shared).
+function openCodesPanel() {
+  st.panelMode = 'share';
+  st.panelSlug = null;
+  st.shareLoading = false;
+  st.shareError = null;
+  st.panelName = st.bundleCodes && st.bundleCodes.length > 1 ? 'Import Codes' : 'Import Code';
+  showPanel();
+}
+
+function openSettingsPanel() {
+  st.panelMode = 'settings';
+  st.panelSlug = null;
+  st.panelName = 'Settings';
+  showPanel();
+}
+
+function settingsBodyHtml() {
+  function group(title, body) {
+    return '<div class="set-group"><div class="set-label">' + title + '</div>' + body + '</div>';
+  }
+  function arrow(col) {
+    return st.sortCol === col ? (st.sortDir === 'asc' ? ' ↑' : ' ↓') : '';
+  }
+
+  var html = group('Data Source',
+    '<div class="src-ctrl">' +
+    '<button class="src-opt' + (oplSource === 'opl' ? ' active' : '') + '" onclick="setOplSource(\'opl\')">OpenPowerlifting</button>' +
+    '<button class="src-opt' + (oplSource === 'ipf' ? ' active' : '') + '" onclick="setOplSource(\'ipf\')">OpenIPF</button>' +
+    '</div>' +
+    '<p class="hint">OpenIPF only includes IPF-affiliated competitions.</p>');
+
+  html += group('Display Metric',
+    '<div class="src-ctrl">' +
+    '<button class="src-opt' + (st.metric === 'total' ? ' active' : '') + '" onclick="setMetric(\'total\')">Total</button>' +
+    '<button class="src-opt' + (st.metric === 'gl' ? ' active' : '') + '" onclick="setMetric(\'gl\')">GL Points</button>' +
+    '</div>');
+
+  if (st.saved) {
+    html += group('Sort By',
+      '<div class="src-ctrl">' +
+      '<button class="src-opt' + (st.sortCol === 'lot' ? ' active' : '') + '" onclick="setSort(\'lot\')">Lot' + arrow('lot') + '</button>' +
+      '<button class="src-opt' + (st.sortCol === 'name' ? ' active' : '') + '" onclick="setSort(\'name\')">Name' + arrow('name') + '</button>' +
+      '<button class="src-opt' + (st.sortCol === 'class' ? ' active' : '') + '" onclick="setSort(\'class\')">Class' + arrow('class') + '</button>' +
+      '<button class="src-opt' + (st.sortCol === 'total' ? ' active' : '') + '" onclick="setSort(\'total\')">' + (st.metric === 'gl' ? 'GL Points' : 'Total') + arrow('total') + '</button>' +
+      '</div>');
+  }
+
+  return html;
 }
 
 // Build the inner share content (codes, QRs, copy actions) shared by the
@@ -442,7 +500,8 @@ function shareBodyHtml() {
     html += '<div class="share-box-hint">Open MyLiftSquad &rarr; Import &rarr; enter this code<br>or scan the QR code with the app</div>';
     html += '<div class="share-box-actions">';
     html += '<button class="btn-copy" onclick="navigator.clipboard.writeText(\'' + esc(st.bundleCodes[0].code) + '\').then(function(){var b=document.getElementById(\'copybtn\');if(b){b.textContent=\'Copied!\';b.classList.add(\'copied\');setTimeout(function(){b.textContent=\'Copy Code\';b.classList.remove(\'copied\');},2000);}});" id="copybtn">Copy Code</button>';
-    html += '<button id="copyurlbtn" class="btn-copy-link" onclick="copyShareUrl()">Copy Link</button>';
+    // No share code means these are freshly generated import codes, not a share.
+    if (st.shareCode) html += '<button id="copyurlbtn" class="btn-copy-link" onclick="copyShareUrl()">Copy Link</button>';
     html += '</div>';
   } else if (st.bundleCodes && st.bundleCodes.length > 1) {
     html += '<div class="share-box-hint" style="font-weight:600;color:var(--text)">App Import Codes</div>';
@@ -455,9 +514,11 @@ function shareBodyHtml() {
       html += '</div>';
     }
     html += '<div class="share-box-hint">Enter a code in MyLiftSquad &rarr; Import, or scan QR</div>';
-    html += '<div class="share-box-actions">';
-    html += '<button id="copyurlbtn" class="btn-copy-link" onclick="copyShareUrl()" style="flex:1">Copy Share Link</button>';
-    html += '</div>';
+    if (st.shareCode) {
+      html += '<div class="share-box-actions">';
+      html += '<button id="copyurlbtn" class="btn-copy-link" onclick="copyShareUrl()" style="flex:1">Copy Share Link</button>';
+      html += '</div>';
+    }
   } else {
     html += '<div class="share-box-hint">Share link copied to clipboard.</div>';
     html += '<div class="share-box-actions">';
@@ -518,10 +579,14 @@ async function loadFromShareCode(code) {
     st.lifters = s.lifters;
     st.resolved = s.resolved;
     st.resolvedCount = (s.resolved || []).filter(Boolean).length;
+    st.provider = s.provider || 'liftingcast';
     st.bundleCodes = s.bundleCodes || null;
+    st.activeFlight = null;
     st.saved = true;
     st.shareCode = null;
     render();
+    // The code is the point of a share link, so slide it straight out.
+    if (st.bundleCodes && st.bundleCodes.length) openCodesPanel();
   } catch(err) {
     st.phase = 'error';
     st.error = err.message || String(err);
@@ -584,13 +649,18 @@ function renderPanel() {
   if (st.panelSlug) html += '<a class="panel-opl" href="' + oplProfileBase() + '/' + esc(st.panelSlug) + '" target="_blank" rel="noopener">' + (oplSource === 'ipf' ? 'OpenIPF' : 'OpenPowerlifting') + ' &#8599;</a>';
   html += '<button class="panel-close" onclick="closePanel()">&#10005;</button>';
   html += '</div></div>';
+  if (st.panelMode === 'settings') {
+    html += '<div class="panel-settings">' + settingsBodyHtml() + '</div>';
+    el.innerHTML = html;
+    return;
+  }
   if (st.panelMode === 'share') {
     html += '<div class="panel-share">';
     if (st.shareLoading) {
       html += '<div class="loading"><div class="spinner"></div><p class="prog-label">Generating share codes…</p></div>';
     } else if (st.shareError) {
       html += '<div class="err-box" style="margin:16px">' + esc(st.shareError) + '</div>';
-    } else if (st.shareCode) {
+    } else if (st.shareCode || st.bundleCodes) {
       html += shareBodyHtml();
     }
     html += '</div>';
@@ -722,6 +792,9 @@ function buildSquadView() {
 function doSave() {
   var nie = document.getElementById('nom-edit');
   if (nie) st.nameOverride = nie.value.trim();
+  // Keep the edited title, but never let it be saved blank.
+  var mne = document.getElementById('meet-name-edit');
+  if (mne && mne.value.trim() && st.meet) st.meet.name = mne.value.trim();
   saveToHistory();
   st.saved = true;
   render();
@@ -783,17 +856,22 @@ function render() {
     html += '<div style="margin-bottom:12px"><button class="btn-back" onclick="doReset()">&#8592; Back</button></div>';
     html += '<div class="card">';
     html += '<div class="meet-meta">';
-    html += '<span class="meet-name">' + esc(meet.name) + '</span>';
-    html += '<span class="chip">' + esc(meet.federation) + '</span>';
-    if (meet.date) html += '<span class="chip">' + esc(meet.date) + '</span>';
-    html += '<span class="chip ' + (oplSource === 'ipf' ? 'chip-ipf' : 'chip-opl') + '">' + (oplSource === 'ipf' ? 'OpenIPF' : 'OpenPowerlifting') + '</span>';
+    if (st.phase === 'done' && !st.saved) {
+      html += '<input type="text" id="meet-name-edit" class="meet-name-input" value="' + esc(meet.name) + '" aria-label="Competition title">';
+    } else {
+      html += '<span class="meet-name">' + esc(meet.name) + '</span>';
+    }
     if (st.phase === 'done') {
+      // One right-aligned group so the actions line up as a uniform set.
+      html += '<div class="meet-actions">';
       if (st.saved) {
-        html += '<button class="btn-share" onclick="doShare()" ' + (st.shareLoading ? 'disabled' : '') + '>' + (st.shareLoading ? 'Sharing…' : 'Share') + '</button>';
-        html += '<button class="btn-edit" onclick="st.saved=false;st.shareCode=null;render()">Edit</button>';
+        html += '<button class="btn-act btn-share" onclick="doShare()" ' + (st.shareLoading ? 'disabled' : '') + '>' + (st.shareLoading ? 'Sharing…' : 'Share') + '</button>';
+        html += '<button class="btn-act btn-edit" onclick="st.saved=false;st.shareCode=null;render()">Edit</button>';
       } else {
-        html += '<button class="btn-save" onclick="doSave()">Save</button>';
+        html += '<button class="btn-act btn-save" onclick="doSave()">Save</button>';
       }
+      html += '<button class="btn-act btn-settings" onclick="openSettingsPanel()">Settings</button>';
+      html += '</div>';
     }
     html += '</div>';
     // Share codes/QRs now render in the slide-out panel (see doShare /
@@ -808,38 +886,21 @@ function render() {
       html += '<p class="hint" style="margin-top:8px">Squad prefix: <strong>' + esc(meetLabel()) + '</strong></p>';
     } else {
       // Edit mode: let the user change the squad prefix (name override).
-      var defLabel = st.meet ? st.meet.federation + ' - ' + st.meet.date : '';
+      // With no override, IrishPF meets fall back to the (editable) title and
+      // LiftingCast ones to federation + date.
+      var irish = st.provider === 'irishpf';
+      var defLabel = !st.meet ? '' : irish ? st.meet.name : st.meet.federation + ' - ' + st.meet.date;
       html += '<div class="fg" style="margin-top:10px"><label for="nom-edit">Squad prefix <span style="opacity:.5">(optional)</span></label>';
       html += '<input type="text" id="nom-edit" placeholder="' + esc(defLabel) + '" value="' + esc(st.nameOverride) + '">';
-      html += '<p class="hint">Squad names will be prefixed with this. Defaults to federation + date.</p></div>';
+      html += '<p class="hint">Squad names will be prefixed with this. Defaults to ' + (irish ? 'the competition title above' : 'federation + date') + '.</p></div>';
     }
+    // Meet tags sit under the squad prefix rather than crowding the title.
+    html += '<div class="meet-chips">';
+    html += '<span class="chip">' + esc(meet.federation) + '</span>';
+    if (meet.date) html += '<span class="chip">' + esc(meet.date) + '</span>';
+    html += '<span class="chip ' + (oplSource === 'ipf' ? 'chip-ipf' : 'chip-opl') + '">' + (oplSource === 'ipf' ? 'OpenIPF' : 'OpenPowerlifting') + '</span>';
     html += '</div>';
-
-    if (st.phase === 'done') {
-      html += '<div class="card" style="padding:16px 20px">';
-      html += '<div class="card-title" style="margin-bottom:12px">View Settings</div>';
-      html += '<div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start">';
-      html += '<div><div style="font-size:.75rem;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Data Source</div>';
-      html += '<div class="src-ctrl">' +
-        '<button class="src-opt' + (oplSource === 'opl' ? ' active' : '') + '" onclick="setOplSource(\'opl\')">OpenPowerlifting</button>' +
-        '<button class="src-opt' + (oplSource === 'ipf' ? ' active' : '') + '" onclick="setOplSource(\'ipf\')">OpenIPF</button>' +
-        '</div></div>';
-      html += '<div><div style="font-size:.75rem;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Display Metric</div>';
-      html += '<div class="src-ctrl">' +
-        '<button class="src-opt' + (st.metric === 'total' ? ' active' : '') + '" onclick="setMetric(\'total\')">Total</button>' +
-        '<button class="src-opt' + (st.metric === 'gl' ? ' active' : '') + '" onclick="setMetric(\'gl\')">GL Points</button>' +
-        '</div></div>';
-      if (st.saved) {
-        html += '<div><div style="font-size:.75rem;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Sort By</div>';
-        html += '<div class="src-ctrl">' +
-          '<button class="src-opt' + (st.sortCol === 'lot' ? ' active' : '') + '" onclick="setSort(\'lot\')">Lot' + (st.sortCol === 'lot' ? (st.sortDir === 'asc' ? ' ↑' : ' ↓') : '') + '</button>' +
-          '<button class="src-opt' + (st.sortCol === 'name' ? ' active' : '') + '" onclick="setSort(\'name\')">Name' + (st.sortCol === 'name' ? (st.sortDir === 'asc' ? ' ↑' : ' ↓') : '') + '</button>' +
-          '<button class="src-opt' + (st.sortCol === 'class' ? ' active' : '') + '" onclick="setSort(\'class\')">Class' + (st.sortCol === 'class' ? (st.sortDir === 'asc' ? ' ↑' : ' ↓') : '') + '</button>' +
-          '<button class="src-opt' + (st.sortCol === 'total' ? ' active' : '') + '" onclick="setSort(\'total\')">' + (st.metric === 'gl' ? 'GL Points' : 'Total') + (st.sortCol === 'total' ? (st.sortDir === 'asc' ? ' ↑' : ' ↓') : '') + '</button>' +
-          '</div></div>';
-      }
-      html += '</div></div>';
-    }
+    html += '</div>';
 
     if (st.saved) {
       html += buildSquadView();
@@ -848,28 +909,7 @@ function render() {
     }
 
     if (st.phase === 'done') {
-      if (st.bundleCodes) {
-        html += '<div class="card">';
-        html += '<div class="card-title">Import Code' + (st.bundleCodes.length > 1 ? 's' : '') + '</div>';
-        if (st.bundleCodes.length === 1) {
-          html += '<div class="code-box"><div class="code-val">' + esc(st.bundleCodes[0].code) + '</div>';
-          html += '<div id="qr-' + esc(st.bundleCodes[0].code) + '" class="qr-wrap"></div>';
-          html += '<p class="code-hint">Open MyLiftSquad &rarr; FAB &rarr; Import Squad &rarr; enter this code</p></div>';
-        } else {
-          html += '<div class="multi-codes">';
-          for (var ci = 0; ci < st.bundleCodes.length; ci++) {
-            var item = st.bundleCodes[ci];
-            html += '<div class="mc-item">';
-            html += '<span class="mc-label">Flights ' + esc(item.flights.join(', ')) + '</span>';
-            html += '<span class="mc-val">' + esc(item.code) + '</span>';
-            html += '<div id="qr-' + esc(item.code) + '" class="qr-wrap"></div>';
-            html += '</div>';
-          }
-          html += '</div>';
-        }
-        html += '<p class="hint" style="margin-top:12px;text-align:center">Codes expire after 30 days.</p>';
-        html += '</div>';
-      } else if (!st.saved) {
+      if (!st.saved) {
         var matched = 0;
         for (var ri = 0; ri < st.resolved.length; ri++) {
           if (st.resolved[ri] && st.resolved[ri].oplSlug) matched++;
@@ -883,7 +923,12 @@ function render() {
         }
         html += '</div>';
         if (st.genError) html += '<div class="err-box">' + esc(st.genError) + '</div>';
-        html += '<button class="btn btn-primary btn-block" id="genbtn" onclick="doGenerate()">Generate Import Code</button>';
+        if (st.bundleCodes) {
+          // Codes live in the slide-out panel; this reopens it once closed.
+          html += '<button class="btn btn-primary btn-block" onclick="openCodesPanel()">Show Import Code' + (st.bundleCodes.length > 1 ? 's' : '') + '</button>';
+        } else {
+          html += '<button class="btn btn-primary btn-block" id="genbtn" onclick="doGenerate()">Generate Import Code</button>';
+        }
         html += '</div>';
       }
     }
@@ -895,17 +940,10 @@ function render() {
 
   app.innerHTML = html;
 
-  // Share QRs render inside the slide-out panel via renderShareQRs().
-
-  if (st.bundleCodes && typeof QRCode !== 'undefined') {
-    for (var qi = 0; qi < st.bundleCodes.length; qi++) {
-      var qc = st.bundleCodes[qi].code;
-      var qel = document.getElementById('qr-' + qc);
-      if (qel && !qel.hasChildNodes()) {
-        new QRCode(qel, { text: qc, width: 180, height: 180, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
-      }
-    }
-  }
+  // Import codes and their QRs render inside the slide-out panel, via
+  // renderShareQRs(). Keep an open settings panel in step with toggles made
+  // from within it, since those re-render the page but not the panel.
+  if (st.panelMode === 'settings') renderPanel();
 
   if (st.phase === 'input') {
     var ui = document.getElementById('lcu');
@@ -920,6 +958,13 @@ function render() {
   // Edit-mode squad-prefix field (shown in the done view before saving).
   var nie = document.getElementById('nom-edit');
   if (nie) nie.addEventListener('input', function() { st.nameOverride = this.value.trim(); });
+
+  // Edit-mode competition title. Updated as you type, but not re-rendered —
+  // that would blur the field mid-edit.
+  var mne = document.getElementById('meet-name-edit');
+  if (mne) mne.addEventListener('input', function() {
+    if (st.meet) st.meet.name = this.value;
+  });
 }
 
 function doReset() {
@@ -1124,6 +1169,7 @@ async function doGenerate() {
     st.bundleCodes = codes;
     st.saved = false;
     render();
+    openCodesPanel();
   } catch (err) {
     st.genError = err.message || String(err);
     if (btn) btn.disabled = false;
