@@ -1462,12 +1462,26 @@ function ensureNeoFonts() {
   l.href = 'https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap';
   document.head.appendChild(l);
 }
+var SUN_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" ' +
+  'stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/>' +
+  '<path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2' +
+  'M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
+
+var MOON_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" ' +
+  'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+  '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>';
+
 function applyTheme(theme) {
   var neo = theme === 'neo';
   document.documentElement.classList.toggle('theme-neo', neo);
   if (neo) ensureNeoFonts();
   var btn = document.getElementById('themeToggle');
-  if (btn) btn.textContent = neo ? '● Classic look' : '○ New look';
+  if (!btn) return;
+  // Show the mode the button switches to: a moon while light, a sun while dark.
+  btn.innerHTML = neo ? MOON_ICON : SUN_ICON;
+  var label = neo ? 'Switch to dark mode' : 'Switch to light mode';
+  btn.title = label;
+  btn.setAttribute('aria-label', label);
 }
 function toggleTheme() {
   var next = (localStorage.getItem('mls_theme') === 'neo') ? 'classic' : 'neo';
