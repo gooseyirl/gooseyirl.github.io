@@ -99,6 +99,10 @@ tr:last-child td{border-bottom:none}
 .cand-slug{font-family:ui-monospace,monospace;font-size:.75rem;color:var(--accent);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cand-meta{font-family:ui-monospace,monospace;font-size:.75rem;color:var(--text-muted);white-space:nowrap}
 .cand-actions{display:flex;gap:6px;flex-wrap:wrap}
+.edit-foot{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.btn-icon{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;flex-shrink:0;border:1px solid var(--border);border-radius:var(--rs);background:none;color:var(--text-muted);cursor:pointer;transition:border-color .15s,color .15s,background .15s}
+.btn-icon:hover{border-color:var(--accent);color:var(--accent)}
+.btn-icon-active{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
 .cand-status{font-size:.8125rem;color:var(--text-muted)}
 .edit-input{flex:1;min-width:0;background:var(--bg);border:1px solid var(--accent);border-radius:var(--rs);color:var(--text);padding:6px 10px;font-size:.8125rem;outline:none}
 .btn-sm{padding:5px 12px;border-radius:var(--rs);font-size:.8125rem;font-weight:600;border:none;cursor:pointer;white-space:nowrap}
@@ -267,6 +271,8 @@ input[type=text]:focus-visible,
 .btn-sm:focus-visible,
 .btn-add:focus-visible,
 .btn-act:focus-visible,
+.btn-icon:focus-visible,
+.cand:focus-visible,
 .btn-copy:focus-visible,
 .btn-copy-link:focus-visible,
 .btn-back:focus-visible,

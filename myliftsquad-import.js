@@ -98,6 +98,11 @@ var st = {
   editingUrl: '',
   editCandidates: null,
   editLoading: false,
+  searchQuery: '',
+  searchResults: null,
+  searchLoading: false,
+  searchError: null,
+  showUrlEntry: false,
   lookupError: null,
   sortCol: null,
   sortDir: 'asc',
@@ -132,6 +137,11 @@ function groupByFlight(lifters) {
   }
   return g;
 }
+
+var LINK_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" ' +
+  'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+  '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>' +
+  '<path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>';
 
 // One profile as a card. Clickable when it is an alternative to switch to;
 // static when it is the profile already selected.
@@ -209,17 +219,47 @@ function buildEditPanelBody() {
   }
   html += '</div>';
 
-  html += '<div class="set-group"><div class="set-label">Enter a profile URL or slug</div>';
+  html += '<div class="set-group"><div class="set-label">Search by name</div>';
   html += '<div class="edit-row">';
-  html += '<input type="url" id="eurl-' + idx + '" class="edit-input" placeholder="openpowerlifting.org/u/… or slug" value="' + esc(st.editingUrl) + '">';
-  html += '<button id="elookup-' + idx + '" class="btn-sm btn-sm-primary" onclick="doLookup(' + idx + ')">Lookup</button>';
+  html += '<input type="text" id="esearch" class="edit-input" placeholder="Search ' +
+    (oplSource === 'ipf' ? 'OpenIPF' : 'OpenPowerlifting') + '…" value="' + esc(st.searchQuery) + '">';
+  html += '<button id="esearchbtn" class="btn-sm btn-sm-primary" onclick="doSearch()"' +
+    (st.searchLoading ? ' disabled' : '') + '>' + (st.searchLoading ? 'Searching…' : 'Search') + '</button>';
   html += '</div>';
-  if (st.lookupError) html += '<p class="lookup-err">' + esc(st.lookupError) + '</p>';
+  if (st.searchError) html += '<p class="lookup-err">' + esc(st.searchError) + '</p>';
+
+  if (st.searchLoading) {
+    html += '<div class="cand-status"><span class="badge bp">Searching…</span></div>';
+  } else if (st.searchResults) {
+    if (st.searchResults.length) {
+      html += '<div class="cand-list">';
+      for (var si = 0; si < st.searchResults.length; si++) {
+        html += profileCardHtml(st.searchResults[si], { onclick: 'chooseSearchResult(' + idx + ',' + si + ')' });
+      }
+      html += '</div>';
+    } else {
+      html += '<div class="cand-status">Nothing found for “' + esc(st.searchQuery) + '”.</div>';
+    }
+  }
   html += '</div>';
 
+  if (st.showUrlEntry) {
+    html += '<div class="set-group"><div class="set-label">Profile URL or slug</div>';
+    html += '<div class="edit-row">';
+    html += '<input type="url" id="eurl-' + idx + '" class="edit-input" placeholder="openpowerlifting.org/u/… or slug" value="' + esc(st.editingUrl) + '">';
+    html += '<button id="elookup-' + idx + '" class="btn-sm btn-sm-primary" onclick="doLookup(' + idx + ')">Lookup</button>';
+    html += '</div>';
+    if (st.lookupError) html += '<p class="lookup-err">' + esc(st.lookupError) + '</p>';
+    html += '</div>';
+  }
+
+  html += '<div class="edit-foot">';
   html += '<div class="cand-actions">';
   html += '<button class="btn-sm btn-sm-ghost" onclick="clearMatch(' + idx + ')" title="Mark as having no OpenPowerlifting profile">No match</button>';
   html += '<button class="btn-sm btn-sm-ghost" onclick="cancelEdit()">Cancel</button>';
+  html += '</div>';
+  html += '<button class="btn-icon' + (st.showUrlEntry ? ' btn-icon-active' : '') + '" onclick="toggleUrlEntry()" ' +
+    'title="Enter a profile URL or slug" aria-label="Enter a profile URL or slug">' + LINK_ICON + '</button>';
   html += '</div>';
 
   html += '</div>';
@@ -748,6 +788,7 @@ function renderPanel() {
   if (st.panelMode === 'edit') {
     html += buildEditPanelBody();
     el.innerHTML = html;
+    bindEditPanelInputs();
     return;
   }
   if (st.panelMode === 'share') {
@@ -1147,9 +1188,11 @@ async function fetchCandidates(lifter) {
     '&gender=' + encodeURIComponent(lifter.gender || 'MALE') + '&source=' + oplSource;
   try {
     var res = await fetch(API + '/api/candidates?' + qs + '&limit=5');
+    // An empty list is a real answer — only a missing endpoint falls through,
+    // otherwise a search for someone who isn't on OPL returns fuzzy noise.
     if (res.ok) {
       var data = await res.json();
-      if (data.results && data.results.length) return data.results;
+      return data.results || [];
     }
   } catch (e) { /* fall through */ }
   try {
@@ -1183,9 +1226,70 @@ async function startEdit(idx) {
   renderPanel();
 }
 
+// The panel is rebuilt on every state change, so its fields keep their value
+// in state rather than in the DOM.
+function bindEditPanelInputs() {
+  var search = document.getElementById('esearch');
+  if (search) {
+    search.addEventListener('input', function() { st.searchQuery = this.value; });
+    search.addEventListener('keydown', function(e) { if (e.key === 'Enter') doSearch(); });
+  }
+  var url = document.getElementById('eurl-' + st.editingIdx);
+  if (url) {
+    url.addEventListener('input', function() { st.editingUrl = this.value; });
+    url.addEventListener('keydown', function(e) { if (e.key === 'Enter') doLookup(st.editingIdx); });
+  }
+}
+
+function toggleUrlEntry() {
+  st.showUrlEntry = !st.showUrlEntry;
+  st.lookupError = null;
+  renderPanel();
+  if (st.showUrlEntry) {
+    var el = document.getElementById('eurl-' + st.editingIdx);
+    if (el) el.focus();
+  }
+}
+
+// Free-text search, for when the entry list name doesn't match the profile
+// name — married names, initials, transliterations.
+async function doSearch() {
+  var input = document.getElementById('esearch');
+  var q = (input ? input.value : st.searchQuery || '').trim();
+  st.searchQuery = q;
+  if (!q) {
+    st.searchError = 'Type a name to search for';
+    st.searchResults = null;
+    renderPanel();
+    return;
+  }
+
+  var idx = st.editingIdx;
+  var lifter = st.lifters[idx];
+  st.searchError = null;
+  st.searchResults = null;
+  st.searchLoading = true;
+  renderPanel();
+
+  var results = await fetchCandidates({ name: q, gender: lifter ? lifter.gender : 'MALE' });
+  // Bail if the panel moved on to another athlete while this was in flight.
+  if (st.editingIdx !== idx || st.panelMode !== 'edit') return;
+  st.searchResults = results;
+  st.searchLoading = false;
+  renderPanel();
+}
+
+function chooseSearchResult(idx, si) {
+  var c = st.searchResults && st.searchResults[si];
+  if (c) applyProfile(idx, c);
+}
+
 function chooseCandidate(idx, ci) {
   var c = st.editCandidates && st.editCandidates[ci];
-  if (!c) return;
+  if (c) applyProfile(idx, c);
+}
+
+function applyProfile(idx, c) {
   st.resolved[idx] = {
     idx: idx,
     oplName: c.name || '',
@@ -1210,6 +1314,12 @@ function closeEdit() {
   st.editingIdx = -1;
   st.editCandidates = null;
   st.editLoading = false;
+  st.searchQuery = '';
+  st.searchResults = null;
+  st.searchLoading = false;
+  st.searchError = null;
+  st.showUrlEntry = false;
+  st.editingUrl = '';
   st.lookupError = null;
 }
 
