@@ -43,10 +43,16 @@ input:focus{border-color:var(--accent)}
 .prog-fill{background:var(--accent);height:100%;border-radius:99px;transition:width .25s}
 .prog-label{font-size:.8rem;color:var(--text-muted);margin-top:5px}
 .flight-section{margin-bottom:20px}
-.flight-header{display:flex;align-items:center;gap:10px;margin-bottom:8px}
-.flight-badge{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;background:var(--accent-dim);color:var(--accent);border-radius:7px;font-weight:700;font-size:.9rem;flex-shrink:0}
-.flight-title{font-weight:600}
-.flight-count{color:var(--text-muted);font-size:.85rem}
+.flight-tabs{display:grid;gap:6px;margin-bottom:14px}
+.ftab{display:inline-flex;align-items:center;justify-content:center;gap:7px;background:var(--surface);color:var(--text-muted);border:1px solid var(--border);border-radius:var(--rs);padding:8px 12px;font-size:.875rem;font-weight:600;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:background .15s,color .15s,border-color .15s}
+.ftab:hover{background:var(--surface2);color:var(--text)}
+.ftab-active{background:var(--accent-dim);color:var(--accent);border-color:var(--accent)}
+.ftab-count{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:var(--border);color:var(--text-muted);font-size:.7rem;font-weight:700}
+.ftab-active .ftab-count{background:var(--accent);color:#fff}
+.flight-picker{display:none;position:relative;margin-bottom:14px}
+.flight-picker::after{content:"▾";position:absolute;right:14px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--text-muted);font-size:.85rem}
+.flight-select{appearance:none;-webkit-appearance:none;width:100%;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:var(--rs);padding:10px 34px 10px 14px;font-size:.9375rem;font-weight:600;cursor:pointer;outline:none}
+.flight-select:focus{border-color:var(--accent)}
 .tbl-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
 table{width:100%;border-collapse:collapse;font-size:.875rem}
 th{text-align:left;padding:9px 14px;color:var(--text-muted);font-size:.6875rem;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border);background:var(--surface2)}
@@ -135,6 +141,9 @@ tr:last-child td{border-bottom:none}
 @media(max-width:580px){
   .hide-sm{display:none}
   .sum-num{font-size:1.4rem}
+  /* Narrow screens fit about three tabs; beyond that, swap in the dropdown. */
+  .flight-tabs:not(.few){display:none}
+  .flight-picker:not(.few){display:block}
 }
 .panel-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;opacity:0;pointer-events:none;transition:opacity .25s}
 .panel-overlay.open{opacity:1;pointer-events:auto}
@@ -323,7 +332,7 @@ html.theme-neo .btn-primary{
   color:#fff;font-weight:700;letter-spacing:.01em;
   box-shadow:0 5px 16px rgba(47,109,246,0.28);
 }
-html.theme-neo .flight-badge{font-weight:700}
+html.theme-neo .ftab{font-weight:700}
 html.theme-neo th{letter-spacing:.04em;color:var(--text-muted)}
 html.theme-neo .chip,
 html.theme-neo .lc-cat{font-weight:700}

@@ -42,7 +42,7 @@ function getHistory() {
 function saveToHistory() {
   if (!st.meet || !st.meetId) return;
   var history = getHistory().filter(function(h) { return h.meetId !== st.meetId; });
-  history.unshift({ savedAt: new Date().toISOString(), meetId: st.meetId, lcUrl: st.lcUrl, nameOverride: st.nameOverride, meet: st.meet, lifters: st.lifters, resolved: st.resolved, bundleCodes: st.bundleCodes });
+  history.unshift({ savedAt: new Date().toISOString(), meetId: st.meetId, lcUrl: st.lcUrl, nameOverride: st.nameOverride, meet: st.meet, provider: st.provider, lifters: st.lifters, resolved: st.resolved, bundleCodes: st.bundleCodes });
   try { localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, HISTORY_MAX))); } catch(e) {}
 }
 
@@ -56,7 +56,10 @@ function loadFromHistory(meetId) {
   st.lcUrl = entry.lcUrl;
   st.nameOverride = entry.nameOverride || '';
   st.meet = entry.meet;
+  // Meets saved before IrishPF support came in are all LiftingCast.
+  st.provider = entry.provider || 'liftingcast';
   st.lifters = entry.lifters;
+  st.activeFlight = null;
   st.resolved = entry.resolved;
   st.resolvedCount = entry.resolved.filter(Boolean).length;
   st.bundleCodes = entry.bundleCodes;
@@ -86,7 +89,9 @@ var st = {
   nameOverride: '',
   meetId: null,
   meet: null,
+  provider: 'liftingcast',
   lifters: [],
+  activeFlight: null,
   resolved: [],
   resolvedCount: 0,
   editingIdx: -1,
@@ -274,27 +279,64 @@ function thSort(label, col) {
   return '<button class="sort-btn' + (active ? ' sort-btn-active' : '') + '" onclick="setSort(\'' + col + '\')">' + label + arrow + '</button>';
 }
 
+function flightNames() {
+  return Object.keys(groupByFlight(st.lifters)).sort();
+}
+
+function setFlight(i) {
+  st.activeFlight = flightNames()[i];
+  render();
+}
+
+// Tabs for picking one flight at a time, with a dropdown fallback on phones.
+// Also normalises st.activeFlight, so callers can rely on it afterwards.
+function buildFlightNav(groups, flights) {
+  if (flights.indexOf(st.activeFlight) < 0) st.activeFlight = flights[0];
+
+  // Spread the tabs as evenly as possible over as few rows as will hold them,
+  // five per row at most — so eight flights go 4+4 rather than 5+3.
+  var rows = Math.max(1, Math.ceil(flights.length / 5));
+  var cols = Math.max(1, Math.ceil(flights.length / rows));
+  // Few enough to stay legible as tabs even on a phone.
+  var few = flights.length <= 3 ? ' few' : '';
+
+  var html = '<div class="flight-tabs' + few + '" style="grid-template-columns:repeat(' + cols + ',minmax(0,1fr))">';
+  for (var i = 0; i < flights.length; i++) {
+    var f = flights[i];
+    html += '<button class="ftab' + (f === st.activeFlight ? ' ftab-active' : '') + '" onclick="setFlight(' + i + ')">';
+    html += 'Flight ' + esc(f);
+    html += '<span class="ftab-count">' + groups[f].length + '</span>';
+    html += '</button>';
+  }
+  html += '</div>';
+
+  html += '<div class="flight-picker' + few + '">';
+  html += '<select class="flight-select" onchange="setFlight(this.selectedIndex)">';
+  for (var j = 0; j < flights.length; j++) {
+    var fl = flights[j];
+    html += '<option' + (fl === st.activeFlight ? ' selected' : '') + '>';
+    html += 'Flight ' + esc(fl) + ' (' + groups[fl].length + ' athletes)';
+    html += '</option>';
+  }
+  html += '</select></div>';
+
+  return html;
+}
+
 function buildFlightsHTML() {
   var groups = groupByFlight(st.lifters);
   var flights = Object.keys(groups).sort();
-  var html = '';
-  for (var fi = 0; fi < flights.length; fi++) {
-    var f = flights[fi];
-    var entries = groups[f];
-    html += '<div class="flight-section">';
-    html += '<div class="flight-header">';
-    html += '<span class="flight-badge">' + esc(f) + '</span>';
-    html += '<span class="flight-title">Flight ' + esc(f) + '</span>';
-    html += '<span class="flight-count">' + entries.length + ' athletes</span>';
-    html += '</div>';
-    html += '<div class="lifter-list">';
-    html += '<div class="lifter-list-header">';
-    html += '<div class="lifter-col-main">' + thSort('Lifter', 'name') + '<span style="opacity:.3;margin:0 8px">·</span>' + thSort('Class', 'class') + '<span style="opacity:.3;margin:0 8px">·</span>' + thSort('Lot', 'lot') + '</div>';
-    html += '<div class="lifter-col-right" style="display:flex;align-items:center;gap:12px"><span style="font-size:.6875rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);display:inline-flex;align-items:center;gap:4px">Confidence' + confHelpHtml() + '</span>' + thSort(st.metric === 'gl' ? 'GL Pts' : 'Total', 'total') + '</div>';
-    html += '</div>';
-    html += buildTableRows(sortEntries(entries));
-    html += '</div></div>';
-  }
+  var html = buildFlightNav(groups, flights);
+  var entries = groups[st.activeFlight] || [];
+
+  html += '<div class="flight-section">';
+  html += '<div class="lifter-list">';
+  html += '<div class="lifter-list-header">';
+  html += '<div class="lifter-col-main">' + thSort('Lifter', 'name') + '<span style="opacity:.3;margin:0 8px">·</span>' + thSort('Class', 'class') + '<span style="opacity:.3;margin:0 8px">·</span>' + thSort('Lot', 'lot') + '</div>';
+  html += '<div class="lifter-col-right" style="display:flex;align-items:center;gap:12px"><span style="font-size:.6875rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);display:inline-flex;align-items:center;gap:4px">Confidence' + confHelpHtml() + '</span>' + thSort(st.metric === 'gl' ? 'GL Pts' : 'Total', 'total') + '</div>';
+  html += '</div>';
+  html += buildTableRows(sortEntries(entries));
+  html += '</div></div>';
   return html;
 }
 
@@ -302,6 +344,9 @@ function buildFlightsHTML() {
 function meetLabel() {
   if (st.nameOverride) return st.nameOverride;
   if (!st.meet) return '';
+  // IrishPF pages carry a proper competition name; LiftingCast only has a
+  // federation and a date.
+  if (st.provider === 'irishpf') return st.meet.name;
   return st.meet.federation + ' - ' + st.meet.date;
 }
 
@@ -663,21 +708,14 @@ function buildAthleteCard(lifter, r) {
 function buildSquadView() {
   var groups = groupByFlight(st.lifters);
   var flights = Object.keys(groups).sort();
-  var html = '';
-  for (var fi = 0; fi < flights.length; fi++) {
-    var f = flights[fi];
-    var entries = sortEntries(groups[f]);
-    html += '<div class="flight-section">';
-    html += '<div class="flight-header">';
-    html += '<span class="flight-badge">' + esc(f) + '</span>';
-    html += '<span class="flight-title">Flight ' + esc(f) + '</span>';
-    html += '<span class="flight-count">' + entries.length + ' athletes</span>';
-    html += '</div>';
-    for (var i = 0; i < entries.length; i++) {
-      html += buildAthleteCard(entries[i].lifter, st.resolved[entries[i].idx]);
-    }
-    html += '</div>';
+  var html = buildFlightNav(groups, flights);
+  var entries = sortEntries(groups[st.activeFlight] || []);
+
+  html += '<div class="flight-section">';
+  for (var i = 0; i < entries.length; i++) {
+    html += buildAthleteCard(entries[i].lifter, st.resolved[entries[i].idx]);
   }
+  html += '</div>';
   return html;
 }
 
@@ -696,12 +734,13 @@ function render() {
 
   if (st.phase === 'input') {
     html = '<div class="card">' +
-      '<div class="card-title">LiftingCast Meet</div>' +
-      '<div class="fg"><label for="lcu">LiftingCast URL</label>' +
-      '<input type="url" id="lcu" placeholder="https://liftingcast.com/meets/…" value="' + esc(st.lcUrl) + '"></div>' +
+      '<div class="card-title">Competition</div>' +
+      '<div class="fg"><label for="lcu">LiftingCast or IrishPF URL</label>' +
+      '<input type="url" id="lcu" placeholder="https://liftingcast.com/meets/…" value="' + esc(st.lcUrl) + '">' +
+      '<p class="hint">A LiftingCast meet link, or an IrishPF competition page such as irishpowerliftingfederation.com/august-open-2026/</p></div>' +
       '<div class="fg"><label for="nom">Competition name <span style="opacity:.5">(optional)</span></label>' +
       '<input type="text" id="nom" placeholder="e.g. IrishPF 2026 June Open" value="' + esc(st.nameOverride) + '">' +
-      '<p class="hint">Squad names will be prefixed with this. Defaults to federation + date from LiftingCast.</p></div>' +
+      '<p class="hint">Squad names will be prefixed with this. Defaults to the competition name on IrishPF, or federation + date from LiftingCast.</p></div>' +
       '<div class="fg"><label>Data Source</label>' +
       '<div class="src-ctrl">' +
       '<button class="src-opt' + (oplSource === 'opl' ? ' active' : '') + '" id="src-opl" data-src="opl" onclick="setOplSource(this.dataset.src)">OpenPowerlifting</button>' +
@@ -897,7 +936,7 @@ async function doFetch() {
   var ni = document.getElementById('nom');
   if (ui) st.lcUrl = ui.value.trim();
   if (ni) st.nameOverride = ni.value.trim();
-  if (!st.lcUrl) { alert('Please enter a LiftingCast URL'); return; }
+  if (!st.lcUrl) { alert('Please enter a LiftingCast or IrishPF URL'); return; }
 
   st.phase = 'fetching';
   st.error = null;
@@ -912,7 +951,9 @@ async function doFetch() {
 
     st.meet = data.meet;
     st.meetId = data.meetId;
+    st.provider = data.provider || 'liftingcast';
     st.lifters = data.lifters;
+    st.activeFlight = null;
     st.resolved = new Array(data.lifters.length).fill(null);
     st.resolvedCount = 0;
     st.phase = 'resolving';
