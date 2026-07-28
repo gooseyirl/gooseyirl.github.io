@@ -2,27 +2,50 @@ var API = 'https://myliftsquad-web.gooseyirl.workers.dev';
 var BUNDLE_API = 'https://myliftsquad-api.gooseyirl.workers.dev';
 var HISTORY_KEY = 'mls_history';
 var HISTORY_MAX = 5;
-var oplSource = localStorage.getItem('mls_opl_source') || 'opl';
 function loadPref(key, fallback) { try { return localStorage.getItem(key) || fallback; } catch(e) { return fallback; } }
 function savePref(key, val) { try { localStorage.setItem(key, val); } catch(e) {} }
 
+// A meet is either an OpenPowerlifting meet or an OpenIPF one, never a mix:
+// comparing athletes only means anything if every number came out of the same
+// database. So the source lives on the meet (st.source) and travels with it
+// through saves and share links. mls_opl_source is only the default for the
+// next import — it never overrides the source a meet was built with.
+function sourceName(src) {
+  return src === 'ipf' ? 'OpenIPF' : 'OpenPowerlifting';
+}
+
+// Meets saved before the source moved onto the meet carry it per athlete
+// instead; fall back to that, then to the stored preference.
+function entrySource(entry) {
+  if (entry.source) return entry.source;
+  var resolved = entry.resolved || [];
+  for (var i = 0; i < resolved.length; i++) {
+    if (resolved[i] && resolved[i].dataSource) return resolved[i].dataSource;
+  }
+  return loadPref('mls_opl_source', 'opl');
+}
+
 async function setOplSource(src) {
-  if (src === oplSource) return;
-  if (st.phase === 'done' || st.phase === 'resolving') {
-    var srcName = src === 'ipf' ? 'OpenIPF' : 'OpenPowerlifting';
-    if (!confirm('Switching to ' + srcName + ' will re-look up all athletes, which may take a moment. Continue?')) return;
-  }
-  oplSource = src;
-  try { localStorage.setItem('mls_opl_source', src); } catch(e) {}
-  if (st.phase === 'done' || st.phase === 'resolving') {
-    st.resolved = new Array(st.lifters.length).fill(null);
-    st.resolvedCount = 0;
-    st.phase = 'resolving';
-    render();
-    await doResolveAll();
-    st.phase = 'done';
-    render();
-  }
+  if (src === st.source) return;
+  var hasMeet = st.phase === 'done' || st.phase === 'resolving';
+  if (hasMeet && !confirm('Switching to ' + sourceName(src) +
+      ' will re-look up all athletes, which may take a moment. Continue?')) return;
+
+  st.source = src;
+  savePref('mls_opl_source', src);
+  if (!hasMeet) { render(); return; }
+
+  // Convert the whole meet or nothing — a half-switched squad would put
+  // OpenIPF numbers next to OpenPowerlifting ones.
+  st.resolved = new Array(st.lifters.length).fill(null);
+  st.resolvedCount = 0;
+  st.phase = 'resolving';
+  render();
+  await doResolveAll();
+  st.phase = 'done';
+  if (st.saved) saveToHistory();
+  render();
+  backfillBests();
 }
 
 function setMetric(m) {
@@ -32,7 +55,7 @@ function setMetric(m) {
 }
 
 function oplProfileBase() {
-  return oplSource === 'ipf' ? 'https://www.openipf.org/u' : 'https://www.openpowerlifting.org/u';
+  return st.source === 'ipf' ? 'https://www.openipf.org/u' : 'https://www.openpowerlifting.org/u';
 }
 
 function getHistory() {
@@ -42,7 +65,7 @@ function getHistory() {
 function saveToHistory() {
   if (!st.meet || !st.meetId) return;
   var history = getHistory().filter(function(h) { return h.meetId !== st.meetId; });
-  history.unshift({ savedAt: new Date().toISOString(), meetId: st.meetId, lcUrl: st.lcUrl, nameOverride: st.nameOverride, meet: st.meet, provider: st.provider, lifters: st.lifters, resolved: st.resolved, bundleCodes: st.bundleCodes });
+  history.unshift({ savedAt: new Date().toISOString(), meetId: st.meetId, lcUrl: st.lcUrl, nameOverride: st.nameOverride, meet: st.meet, provider: st.provider, source: st.source, lifters: st.lifters, resolved: st.resolved, bundleCodes: st.bundleCodes });
   try { localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, HISTORY_MAX))); } catch(e) {}
 }
 
@@ -58,6 +81,7 @@ function loadFromHistory(meetId) {
   st.meet = entry.meet;
   // Meets saved before IrishPF support came in are all LiftingCast.
   st.provider = entry.provider || 'liftingcast';
+  st.source = entrySource(entry);
   st.lifters = entry.lifters;
   st.activeFlight = null;
   st.resolved = entry.resolved;
@@ -69,6 +93,7 @@ function loadFromHistory(meetId) {
   st.error = null;
   st.saved = true;
   render();
+  backfillBests();
 }
 
 function deleteFromHistory(meetId) {
@@ -121,7 +146,10 @@ var st = {
   shareError: null,
   metric: loadPref('mls_metric', 'total'),
   sortCol: loadPref('mls_sort_col', 'lot') || 'lot',
-  sortDir: loadPref('mls_sort_dir', 'asc')
+  sortDir: loadPref('mls_sort_dir', 'asc'),
+  // Which database this meet's numbers came from. Seeded from the saved
+  // preference, then replaced by the meet's own source once one is loaded.
+  source: loadPref('mls_opl_source', 'opl')
 };
 
 function esc(s) {
@@ -214,7 +242,7 @@ function buildEditPanelBody() {
       html += '</div>';
     } else {
       html += '<div class="cand-status">No other ' +
-        (oplSource === 'ipf' ? 'OpenIPF' : 'OpenPowerlifting') + ' profiles match this name.</div>';
+        sourceName(st.source) + ' profiles match this name.</div>';
     }
   }
   html += '</div>';
@@ -222,7 +250,7 @@ function buildEditPanelBody() {
   html += '<div class="set-group"><div class="set-label">Search by name</div>';
   html += '<div class="edit-row">';
   html += '<input type="text" id="esearch" class="edit-input" placeholder="Search ' +
-    (oplSource === 'ipf' ? 'OpenIPF' : 'OpenPowerlifting') + '…" value="' + esc(st.searchQuery) + '">';
+    sourceName(st.source) + '…" value="' + esc(st.searchQuery) + '">';
   html += '<button id="esearchbtn" class="btn-sm btn-sm-primary" onclick="doSearch()"' +
     (st.searchLoading ? ' disabled' : '') + '>' + (st.searchLoading ? 'Searching…' : 'Search') + '</button>';
   html += '</div>';
@@ -255,7 +283,7 @@ function buildEditPanelBody() {
 
   html += '<div class="edit-foot">';
   html += '<div class="cand-actions">';
-  html += '<button class="btn-sm btn-sm-ghost" onclick="clearMatch(' + idx + ')" title="Mark as having no OpenPowerlifting profile">No match</button>';
+  html += '<button class="btn-sm btn-sm-ghost" onclick="clearMatch(' + idx + ')" title="Mark as having no ' + sourceName(st.source) + ' profile">No match</button>';
   html += '<button class="btn-sm btn-sm-ghost" onclick="cancelEdit()">Cancel</button>';
   html += '</div>';
   html += '<button class="btn-icon' + (st.showUrlEntry ? ' btn-icon-active' : '') + '" onclick="toggleUrlEntry()" ' +
@@ -287,8 +315,8 @@ function buildTableRows(entries) {
     } else if (r.oplSlug) {
       html += '<div class="lifter-row-meta">';
       html += '<a class="slug" href="' + oplProfileBase() + '/' + esc(r.oplSlug) + '" target="_blank" rel="noopener">' + esc(r.oplSlug) + '</a>';
-      if (r.oplWeightClass) html += '<span class="muted hide-sm"> · </span><span class="opl-past hide-sm" title="Weight class from past OpenPowerlifting results">' + esc(r.oplWeightClass) + '</span>';
-      if (r.oplTotal) html += '<span class="muted hide-sm"> · </span><span class="opl-past total-past hide-sm" title="Best total from past OpenPowerlifting results">' + esc(r.oplTotal) + '</span>';
+      if (r.oplWeightClass) html += '<span class="muted hide-sm"> · </span><span class="opl-past hide-sm" title="Weight class at their most recent ' + sourceName(st.source) + ' meet">' + esc(r.oplWeightClass) + '</span>';
+      if (r.oplTotal) html += '<span class="muted hide-sm"> · </span><span class="opl-past total-past hide-sm" title="Best total across all ' + sourceName(st.source) + ' results">' + esc(r.oplTotal) + '</span>';
       html += '</div>';
       html += '</div>';
       var bclass2 = r.confidence === 'high' ? 'bh' : r.confidence === 'medium' ? 'bm' : r.confidence === 'manual' ? 'bmanual' : 'bl';
@@ -388,12 +416,12 @@ function sortEntries(entries) {
 }
 
 function confHelpHtml() {
-  var tip = 'How well each lifter was matched to an OpenPowerlifting profile:\n\n' +
+  var tip = 'How well each lifter was matched to a ' + sourceName(st.source) + ' profile:\n\n' +
     '• High — strong match on name and details; very likely correct.\n' +
     '• Medium — probable match; worth a quick check.\n' +
     '• Low — weak match; please verify before sharing.\n' +
     '• Manual — you set this profile by hand.\n' +
-    '• None / No match — no OpenPowerlifting profile (e.g. hasn\'t competed).\n\n' +
+    '• None / No match — no ' + sourceName(st.source) + ' profile (e.g. hasn\'t competed).\n\n' +
     'Tap the ✎ pencil on any lifter to correct a match.';
   return '<span class="conf-help" title="' + esc(tip) + '" role="img" aria-label="What do the confidence levels mean?">?</span>';
 }
@@ -527,7 +555,8 @@ async function doShare() {
     // Also store web tool state for browser sharing
     var state = {
       meetId: st.meetId, lcUrl: st.lcUrl, nameOverride: st.nameOverride,
-      meet: st.meet, provider: st.provider, lifters: st.lifters, resolved: st.resolved,
+      meet: st.meet, provider: st.provider, source: st.source,
+      lifters: st.lifters, resolved: st.resolved,
       bundleCodes: bundleCodes
     };
     var res = await fetch(API + '/api/share', {
@@ -591,8 +620,8 @@ function settingsBodyHtml() {
 
   var html = group('Data Source',
     '<div class="src-ctrl">' +
-    '<button class="src-opt' + (oplSource === 'opl' ? ' active' : '') + '" onclick="setOplSource(\'opl\')">OpenPowerlifting</button>' +
-    '<button class="src-opt' + (oplSource === 'ipf' ? ' active' : '') + '" onclick="setOplSource(\'ipf\')">OpenIPF</button>' +
+    '<button class="src-opt' + (st.source === 'opl' ? ' active' : '') + '" onclick="setOplSource(\'opl\')">OpenPowerlifting</button>' +
+    '<button class="src-opt' + (st.source === 'ipf' ? ' active' : '') + '" onclick="setOplSource(\'ipf\')">OpenIPF</button>' +
     '</div>' +
     '<p class="hint">OpenIPF only includes IPF-affiliated competitions.</p>');
 
@@ -705,6 +734,9 @@ async function loadFromShareCode(code) {
     st.resolved = s.resolved;
     st.resolvedCount = (s.resolved || []).filter(Boolean).length;
     st.provider = s.provider || 'liftingcast';
+    // The sender's source, not the recipient's preference — otherwise their
+    // cards and their history panels would read different databases.
+    st.source = entrySource(s);
     st.bundleCodes = s.bundleCodes || null;
     st.activeFlight = null;
     st.saved = true;
@@ -714,6 +746,7 @@ async function loadFromShareCode(code) {
     // import codes, so the panel doesn't need to open over the entry list.
     saveToHistory();
     render();
+    backfillBests();
   } catch(err) {
     st.phase = 'error';
     st.error = err.message || String(err);
@@ -761,7 +794,7 @@ function closePanel() {
 
 async function fetchPanelData(slug) {
   try {
-    var res = await fetch(API + '/api/lifter?slug=' + encodeURIComponent(slug) + '&source=' + oplSource);
+    var res = await fetch(API + '/api/lifter?slug=' + encodeURIComponent(slug) + '&source=' + st.source);
     var data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Not found');
     st.panelData = data;
@@ -779,7 +812,7 @@ function renderPanel() {
   var html = '<div class="panel-header">';
   html += '<div class="panel-title">' + esc(st.panelName) + '</div>';
   html += '<div class="panel-header-actions">';
-  if (st.panelSlug) html += '<a class="panel-opl" href="' + oplProfileBase() + '/' + esc(st.panelSlug) + '" target="_blank" rel="noopener">' + (oplSource === 'ipf' ? 'OpenIPF' : 'OpenPowerlifting') + ' &#8599;</a>';
+  if (st.panelSlug) html += '<a class="panel-opl" href="' + oplProfileBase() + '/' + esc(st.panelSlug) + '" target="_blank" rel="noopener">' + sourceName(st.source) + ' &#8599;</a>';
   html += '<button class="panel-close" onclick="closePanel()">&#10005;</button>';
   html += '</div></div>';
   if (st.panelMode === 'settings') {
@@ -878,7 +911,7 @@ function buildAthleteCard(lifter, r) {
     if (r.oplFederation) parts.push('<span class="ath-fed">' + esc(r.oplFederation) + '</span>');
     if (wc) parts.push('<span class="ath-sec">' + esc(wc) + '</span>');
     if (r.oplEquipment) parts.push('<span class="ath-sec">' + esc(r.oplEquipment) + '</span>');
-    if (parts.length) html += '<div class="ath-meta" title="Best results from past OpenPowerlifting competitions"><span class="ath-past-tag">Past PB</span>' + parts.join('<span class="ath-sep"> - </span>') + '</div>';
+    if (parts.length) html += '<div class="ath-meta" title="Best results across all ' + sourceName(st.source) + ' competitions"><span class="ath-past-tag">Past PB</span>' + parts.join('<span class="ath-sep"> - </span>') + '</div>';
     var sbd = [];
     if (r.oplSquat && parseFloat(r.oplSquat) > 0) sbd.push(['S', formatKg(r.oplSquat)]);
     if (r.oplBench && parseFloat(r.oplBench) > 0) sbd.push(['B', formatKg(r.oplBench)]);
@@ -955,8 +988,8 @@ function render() {
       '<p class="hint">Squad names will be prefixed with this. Defaults to the competition name on IrishPF, or federation + date from LiftingCast.</p></div>' +
       '<div class="fg"><label>Data Source</label>' +
       '<div class="src-ctrl">' +
-      '<button class="src-opt' + (oplSource === 'opl' ? ' active' : '') + '" id="src-opl" data-src="opl" onclick="setOplSource(this.dataset.src)">OpenPowerlifting</button>' +
-      '<button class="src-opt' + (oplSource === 'ipf' ? ' active' : '') + '" id="src-ipf" data-src="ipf" onclick="setOplSource(this.dataset.src)">OpenIPF</button>' +
+      '<button class="src-opt' + (st.source === 'opl' ? ' active' : '') + '" id="src-opl" data-src="opl" onclick="setOplSource(this.dataset.src)">OpenPowerlifting</button>' +
+      '<button class="src-opt' + (st.source === 'ipf' ? ' active' : '') + '" id="src-ipf" data-src="ipf" onclick="setOplSource(this.dataset.src)">OpenIPF</button>' +
       '</div>' +
       '<p class="hint">OpenIPF only includes IPF-affiliated competitions.</p></div>' +
       '<button class="btn btn-primary btn-block" onclick="doFetch()">Fetch Meet</button>' +
@@ -1024,7 +1057,7 @@ function render() {
       var pct = st.lifters.length > 0 ? Math.round(st.resolvedCount / st.lifters.length * 100) : 0;
       html += '<div class="prog-wrap">';
       html += '<div class="prog-bg"><div class="prog-fill" style="width:' + pct + '%"></div></div>';
-      html += '<p class="prog-label">Resolving ' + (oplSource === 'ipf' ? 'OpenIPF' : 'OpenPowerlifting') + ' slugs… ' + st.resolvedCount + ' / ' + st.lifters.length + '</p>';
+      html += '<p class="prog-label">Resolving ' + sourceName(st.source) + ' slugs… ' + st.resolvedCount + ' / ' + st.lifters.length + '</p>';
       html += '</div>';
     } else if (st.saved) {
       html += '<p class="hint" style="margin-top:8px">Squad prefix: <strong>' + esc(meetLabel()) + '</strong></p>';
@@ -1042,7 +1075,7 @@ function render() {
     html += '<div class="meet-chips">';
     html += '<span class="chip">' + esc(meet.federation) + '</span>';
     if (meet.date) html += '<span class="chip">' + esc(meet.date) + '</span>';
-    html += '<span class="chip ' + (oplSource === 'ipf' ? 'chip-ipf' : 'chip-opl') + '">' + (oplSource === 'ipf' ? 'OpenIPF' : 'OpenPowerlifting') + '</span>';
+    html += '<span class="chip ' + (st.source === 'ipf' ? 'chip-ipf' : 'chip-opl') + '">' + sourceName(st.source) + '</span>';
     html += '</div>';
     html += '</div>';
 
@@ -1117,6 +1150,9 @@ function doReset() {
   st.genError = null;
   st.bundleCodes = null;
   st.saved = false;
+  // Back to a blank import, so the next meet starts from the user's own
+  // default rather than inheriting the source of the meet they just closed.
+  st.source = loadPref('mls_opl_source', 'opl');
   render();
 }
 
@@ -1152,11 +1188,69 @@ async function doFetch() {
     st.phase = 'done';
     st.saved = false;
     render();
+    backfillBests();
   } catch (err) {
     st.phase = 'error';
     st.error = err.message || String(err);
     render();
   }
+}
+
+// Bumped when the shape of a card's numbers changes, so stored meets can be
+// spotted and topped up rather than silently showing stale figures.
+var BESTS_VERSION = 2;
+var backfillToken = 0;
+
+// Cards built before this version hold one meet's numbers — the lifter's best
+// day by GL points — instead of their best squat, bench, deadlift and total,
+// which are usually spread across different meets. /api/lookup reads the whole
+// competition history, so it can put that right for meets already saved or
+// shared. Also covers a page deployed ahead of the API, where a fresh resolve
+// comes back without bests.
+async function backfillBests() {
+  var token = ++backfillToken;
+  var source = st.source;
+  var todo = [];
+  for (var i = 0; i < st.resolved.length; i++) {
+    var r = st.resolved[i];
+    if (r && r.oplSlug && r.bestsV !== BESTS_VERSION) todo.push(i);
+  }
+  if (!todo.length) return;
+
+  var BATCH = 5;
+  for (var b = 0; b < todo.length; b += BATCH) {
+    await Promise.all(todo.slice(b, b + BATCH).map(function(idx) {
+      var slug = st.resolved[idx].oplSlug;
+      return fetch(API + '/api/lookup?slug=' + encodeURIComponent(slug) + '&source=' + source)
+        .then(function(res) { return res.ok ? res.json() : null; })
+        .then(function(data) {
+          // The meet may have been closed, or its source switched, in flight.
+          if (!data || token !== backfillToken) return;
+          var r = st.resolved[idx];
+          if (!r || r.oplSlug !== slug) return;
+          // An athlete whose every result was a DQ has no bests to show; keep
+          // what is already on the card rather than blanking it.
+          if (data.total || data.squat || data.bench || data.deadlift || data.glPoints) {
+            r.oplWeightClass = data.weightClass || '';
+            r.oplTotal = data.total || '';
+            r.oplGlPoints = data.glPoints || '';
+            r.oplSquat = data.squat || '';
+            r.oplBench = data.bench || '';
+            r.oplDeadlift = data.deadlift || '';
+            r.oplFederation = data.federation || '';
+            r.oplEquipment = data.equipment || '';
+            r.dataSource = source;
+          }
+          // An API that predates bests leaves this unstamped, so the next load
+          // tries again rather than settling for the numbers it just returned.
+          r.bestsV = data.bests ? BESTS_VERSION : 0;
+        })
+        .catch(function() {});
+    }));
+    if (token !== backfillToken) return;
+    render();
+  }
+  if (st.saved) saveToHistory();
 }
 
 async function doResolveAll() {
@@ -1167,12 +1261,12 @@ async function doResolveAll() {
     var baseIdx = i;
     var promises = batch.map(function(lifter, j) {
       var idx = baseIdx + j;
-      var url = API + '/api/resolve?name=' + encodeURIComponent(lifter.name) + '&gender=' + encodeURIComponent(lifter.gender) + '&source=' + oplSource;
+      var url = API + '/api/resolve?name=' + encodeURIComponent(lifter.name) + '&gender=' + encodeURIComponent(lifter.gender) + '&source=' + st.source;
       return fetch(url)
         .then(function(r) { return r.json(); })
         .then(function(d) {
           var best = d.results && d.results[0];
-          return { idx: idx, oplName: best ? best.name : '', oplSlug: best ? best.slug : '', confidence: best ? best.confidence : 'none', oplWeightClass: best ? best.weightClass : '', oplTotal: best ? best.total : '', oplGlPoints: best ? (best.glPoints || '') : '', oplSquat: best ? best.squat : '', oplBench: best ? best.bench : '', oplDeadlift: best ? best.deadlift : '', oplFederation: best ? best.federation : '', oplEquipment: best ? best.equipment : '', dataSource: best && best.slug ? oplSource : '' };
+          return { idx: idx, oplName: best ? best.name : '', oplSlug: best ? best.slug : '', confidence: best ? best.confidence : 'none', oplWeightClass: best ? best.weightClass : '', oplTotal: best ? best.total : '', oplGlPoints: best ? (best.glPoints || '') : '', oplSquat: best ? best.squat : '', oplBench: best ? best.bench : '', oplDeadlift: best ? best.deadlift : '', oplFederation: best ? best.federation : '', oplEquipment: best ? best.equipment : '', dataSource: best && best.slug ? st.source : '', bestsV: best && best.bests ? BESTS_VERSION : 0 };
         })
         .catch(function() {
           return { idx: idx, oplName: '', oplSlug: '', confidence: 'none', oplWeightClass: '', oplTotal: '', oplGlPoints: '', oplSquat: '', oplBench: '', oplDeadlift: '', oplFederation: '', oplEquipment: '', dataSource: '' };
@@ -1192,7 +1286,7 @@ async function doResolveAll() {
 // API predates that endpoint, so this page can deploy on its own.
 async function fetchCandidates(lifter) {
   var qs = 'name=' + encodeURIComponent(lifter.name) +
-    '&gender=' + encodeURIComponent(lifter.gender || 'MALE') + '&source=' + oplSource;
+    '&gender=' + encodeURIComponent(lifter.gender || 'MALE') + '&source=' + st.source;
   try {
     var res = await fetch(API + '/api/candidates?' + qs + '&limit=5');
     // An empty list is a real answer — only a missing endpoint falls through,
@@ -1311,7 +1405,8 @@ function applyProfile(idx, c) {
     oplDeadlift: c.deadlift || '',
     oplFederation: c.federation || '',
     oplEquipment: c.equipment || '',
-    dataSource: oplSource
+    dataSource: st.source,
+    bestsV: c.bests ? BESTS_VERSION : 0
   };
   st.saved = false;
   closePanel();
@@ -1368,7 +1463,7 @@ async function doLookup(idx) {
   st.lookupError = null;
 
   try {
-    var res = await fetch(API + '/api/lookup?slug=' + encodeURIComponent(slug.toLowerCase()) + '&source=' + oplSource);
+    var res = await fetch(API + '/api/lookup?slug=' + encodeURIComponent(slug.toLowerCase()) + '&source=' + st.source);
     var data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Not found');
     st.resolved[idx] = {
@@ -1384,7 +1479,8 @@ async function doLookup(idx) {
       oplDeadlift: data.deadlift || '',
       oplFederation: data.federation || '',
       oplEquipment: data.equipment || '',
-      dataSource: oplSource
+      dataSource: st.source,
+      bestsV: data.bests ? BESTS_VERSION : 0
     };
     st.saved = false;
     closePanel();
