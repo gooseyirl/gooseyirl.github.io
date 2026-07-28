@@ -89,7 +89,6 @@ function loadFromHistory(meetId) {
   st.bundleCodes = entry.bundleCodes;
   st.editingIdx = -1;
   st.lookupError = null;
-  st.genError = null;
   st.error = null;
   st.saved = true;
   render();
@@ -132,7 +131,6 @@ var st = {
   sortCol: null,
   sortDir: 'asc',
   bundleCodes: null,
-  genError: null,
   error: null,
   saved: false,
   panelMode: null,        // 'athlete' | 'share'
@@ -143,6 +141,7 @@ var st = {
   panelError: null,
   shareCode: null,
   shareLoading: false,
+  codesLoading: false,
   shareError: null,
   metric: loadPref('mls_metric', 'total'),
   sortCol: loadPref('mls_sort_col', 'lot') || 'lot',
@@ -540,24 +539,58 @@ async function buildBundleCodes() {
   return codes;
 }
 
-async function doShare() {
+function showPanel() {
+  document.getElementById('panel-overlay').classList.add('open');
+  document.getElementById('panel').classList.add('open');
+  document.body.classList.add('panel-open');
+  document.body.style.overflow = 'hidden';
+  renderPanel();
+}
+
+// There are two ways to pass a meet on — a code the phone app imports, and a
+// link that reopens this page — and one panel covers both. They used to be
+// separate Code and Share buttons opening the same body, which said nothing
+// about which one you wanted.
+//
+// Codes are minted once and then reused. Pressing Share used to mint a fresh
+// set every time, so a code read out to someone a minute earlier quietly
+// stopped being the one on screen.
+async function openSharePanel() {
+  st.panelMode = 'share';
+  st.panelSlug = null;
+  st.panelName = 'Share this meet';
+  st.shareError = null;
+  showPanel();
+  if (st.bundleCodes && st.bundleCodes.length) return;
+
+  st.codesLoading = true;
+  renderPanel();
+  try {
+    st.bundleCodes = await buildBundleCodes();
+    if (st.saved) saveToHistory();
+  } catch(err) {
+    st.shareError = err.message || String(err);
+  }
+  st.codesLoading = false;
+  if (st.panelMode === 'share') renderPanel();
+}
+
+// The link is only created when asked for. It uploads a copy of the meet, so
+// there is no reason to make one for someone who only wanted a code to read
+// out. Copies to the clipboard once it exists, since that is the only thing
+// anyone does with it.
+async function createShareLink() {
+  if (st.shareCode) { copyShareUrl(); return; }
   st.shareLoading = true;
   st.shareError = null;
-  st.shareCode = null;
-  // Open the slide-out panel in "share" mode and show a loading state
-  // there, instead of expanding an inline box that pushes the page down.
-  openSharePanel();
+  renderPanel();
   try {
-    // Generate app-importable bundle codes
-    var bundleCodes = await buildBundleCodes();
-    st.bundleCodes = bundleCodes;
-
-    // Also store web tool state for browser sharing
+    if (!st.bundleCodes || !st.bundleCodes.length) st.bundleCodes = await buildBundleCodes();
     var state = {
       meetId: st.meetId, lcUrl: st.lcUrl, nameOverride: st.nameOverride,
       meet: st.meet, provider: st.provider, source: st.source,
       lifters: st.lifters, resolved: st.resolved,
-      bundleCodes: bundleCodes
+      bundleCodes: st.bundleCodes
     };
     var res = await fetch(API + '/api/share', {
       method: 'POST',
@@ -568,39 +601,14 @@ async function doShare() {
     if (!res.ok) throw new Error(data.error || 'Share failed');
     st.shareCode = data.code;
     st.shareLoading = false;
+    if (st.saved) saveToHistory();
     renderPanel();
+    copyShareUrl();
   } catch(err) {
     st.shareError = err.message || String(err);
     st.shareLoading = false;
     renderPanel();
   }
-}
-
-function showPanel() {
-  document.getElementById('panel-overlay').classList.add('open');
-  document.getElementById('panel').classList.add('open');
-  document.body.classList.add('panel-open');
-  document.body.style.overflow = 'hidden';
-  renderPanel();
-}
-
-function openSharePanel() {
-  st.panelMode = 'share';
-  st.panelSlug = null;
-  st.panelName = st.meet && st.meet.name ? st.meet.name : 'Share';
-  showPanel();
-}
-
-// Import codes slide out in the panel rather than sitting at the foot of the
-// page. Same body as sharing, minus the share link (there is no share code
-// unless the user actually shared).
-function openCodesPanel() {
-  st.panelMode = 'share';
-  st.panelSlug = null;
-  st.shareLoading = false;
-  st.shareError = null;
-  st.panelName = st.bundleCodes && st.bundleCodes.length > 1 ? 'Import Codes' : 'Import Code';
-  showPanel();
 }
 
 function openSettingsPanel() {
@@ -644,21 +652,20 @@ function settingsBodyHtml() {
   return html;
 }
 
-// Build the inner share content (codes, QRs, copy actions) shared by the
-// panel. Returns HTML only; QR canvases are populated by renderShareQRs().
+// Two ways out of here, each labelled with where it lands: a code for the app,
+// a link for a browser. Returns HTML only; QR canvases are populated by
+// renderShareQRs().
 function shareBodyHtml() {
-  var html = '';
-  if (st.bundleCodes && st.bundleCodes.length === 1) {
+  var html = '<div class="set-group"><div class="set-label">Import into the app</div>';
+  if (st.codesLoading) {
+    html += '<div class="share-box-hint"><span class="badge bp">Generating codes…</span></div>';
+  } else if (st.bundleCodes && st.bundleCodes.length === 1) {
     html += '<div class="share-box-qr" id="share-bundle-qr-' + esc(st.bundleCodes[0].code) + '"></div>';
     html += '<div class="share-box-code">' + esc(st.bundleCodes[0].code) + '</div>';
-    html += '<div class="share-box-hint">Open MyLiftSquad &rarr; Import &rarr; enter this code<br>or scan the QR code with the app</div>';
-    html += '<div class="share-box-actions">';
-    html += '<button class="btn-copy" onclick="navigator.clipboard.writeText(\'' + esc(st.bundleCodes[0].code) + '\').then(function(){var b=document.getElementById(\'copybtn\');if(b){b.textContent=\'Copied!\';b.classList.add(\'copied\');setTimeout(function(){b.textContent=\'Copy Code\';b.classList.remove(\'copied\');},2000);}});" id="copybtn">Copy Code</button>';
-    // No share code means these are freshly generated import codes, not a share.
-    if (st.shareCode) html += '<button id="copyurlbtn" class="btn-copy-link" onclick="copyShareUrl()">Copy Link</button>';
-    html += '</div>';
+    html += '<div class="share-box-hint">MyLiftSquad &rarr; Import &rarr; enter this code,<br>or scan the QR with the app</div>';
+    html += '<div class="share-box-actions"><button class="btn-copy" id="copybtn" onclick="copyBundleCode()">Copy Code</button></div>';
   } else if (st.bundleCodes && st.bundleCodes.length > 1) {
-    html += '<div class="share-box-hint" style="font-weight:600;color:var(--text)">App Import Codes</div>';
+    // More than ten flights, so they arrive as one code per batch.
     for (var sbi = 0; sbi < st.bundleCodes.length; sbi++) {
       var sbc = st.bundleCodes[sbi];
       html += '<div style="display:flex;align-items:center;gap:10px;width:100%">';
@@ -667,19 +674,25 @@ function shareBodyHtml() {
       html += '<div class="share-box-qr" id="share-bundle-qr-' + esc(sbc.code) + '" style="padding:4px"></div>';
       html += '</div>';
     }
-    html += '<div class="share-box-hint">Enter a code in MyLiftSquad &rarr; Import, or scan QR</div>';
-    if (st.shareCode) {
-      html += '<div class="share-box-actions">';
-      html += '<button id="copyurlbtn" class="btn-copy-link" onclick="copyShareUrl()" style="flex:1">Copy Share Link</button>';
-      html += '</div>';
-    }
+    html += '<div class="share-box-hint">MyLiftSquad &rarr; Import &rarr; enter a code, or scan its QR</div>';
   } else {
-    html += '<div class="share-box-hint">Share link copied to clipboard.</div>';
-    html += '<div class="share-box-actions">';
-    html += '<button id="copyurlbtn" class="btn-copy-link" onclick="copyShareUrl()">Copy Link</button>';
-    html += '</div>';
+    html += '<div class="share-box-hint">No import codes for this meet.</div>';
   }
-  html += '<div class="share-box-expiry">This code and link expire after 30 days.</div>';
+  html += '</div>';
+
+  html += '<div class="set-group"><div class="set-label">Send a link</div>';
+  html += '<div class="share-box-hint">Opens this page in a browser, with every match as you have it here.</div>';
+  if (st.shareLoading) {
+    html += '<div class="share-box-hint"><span class="badge bp">Creating link…</span></div>';
+  } else {
+    if (st.shareCode) html += '<div class="share-url">' + esc(shareUrl()) + '</div>';
+    html += '<div class="share-box-actions"><button id="copyurlbtn" class="btn-copy-link" onclick="createShareLink()">' +
+      (st.shareCode ? 'Copy Link' : 'Create Link') + '</button></div>';
+  }
+  html += '</div>';
+
+  if (st.shareError) html += '<div class="err-box" style="width:100%">' + esc(st.shareError) + '</div>';
+  html += '<div class="share-box-expiry">Codes and links expire after 30 days.</div>';
   return html;
 }
 
@@ -709,9 +722,9 @@ function shareUrl() {
   return window.location.origin + window.location.pathname + '?share=' + st.shareCode;
 }
 
-function copyShareCode() {
-  if (!st.shareCode) return;
-  navigator.clipboard.writeText(st.shareCode).then(function() {
+function copyBundleCode() {
+  if (!st.bundleCodes || !st.bundleCodes.length) return;
+  navigator.clipboard.writeText(st.bundleCodes[0].code).then(function() {
     var btn = document.getElementById('copybtn');
     if (btn) { btn.textContent = 'Copied!'; btn.classList.add('copied'); setTimeout(function(){ btn.textContent = 'Copy Code'; btn.classList.remove('copied'); }, 2000); }
   });
@@ -827,15 +840,9 @@ function renderPanel() {
     return;
   }
   if (st.panelMode === 'share') {
-    html += '<div class="panel-share">';
-    if (st.shareLoading) {
-      html += '<div class="loading"><div class="spinner"></div><p class="prog-label">Generating share codes…</p></div>';
-    } else if (st.shareError) {
-      html += '<div class="err-box" style="margin:16px">' + esc(st.shareError) + '</div>';
-    } else if (st.shareCode || st.bundleCodes) {
-      html += shareBodyHtml();
-    }
-    html += '</div>';
+    // Each section carries its own loading and error state, so the panel no
+    // longer blanks out while one half of it is working.
+    html += '<div class="panel-share">' + shareBodyHtml() + '</div>';
     el.innerHTML = html;
     renderShareQRs();
     return;
@@ -1037,12 +1044,9 @@ function render() {
       // One right-aligned group so the actions line up as a uniform set.
       html += '<div class="meet-actions">';
       if (st.saved) {
-        // Once saved there is no summary card, so this is the way back to
-        // codes that already exist — including for share-link recipients.
-        if (st.bundleCodes && st.bundleCodes.length) {
-          html += '<button class="btn-act" onclick="openCodesPanel()">Code' + (st.bundleCodes.length > 1 ? 's' : '') + '</button>';
-        }
-        html += '<button class="btn-act btn-share" onclick="doShare()" ' + (st.shareLoading ? 'disabled' : '') + '>' + (st.shareLoading ? 'Sharing…' : 'Share') + '</button>';
+        // One button for both a code and a link — including for share-link
+        // recipients, who arrive saved and have no other route to the codes.
+        html += '<button class="btn-act btn-share" onclick="openSharePanel()">Share</button>';
         html += '<button class="btn-act btn-edit" onclick="st.saved=false;st.shareCode=null;render()">Edit</button>';
       } else {
         html += '<button class="btn-act btn-save" onclick="doSave()">Save</button>';
@@ -1051,8 +1055,9 @@ function render() {
       html += '</div>';
     }
     html += '</div>';
-    // Share codes/QRs now render in the slide-out panel (see doShare /
-    // renderPanel), not inline, so they no longer push the page down.
+    // Codes, QRs and the share link render in the slide-out panel (see
+    // openSharePanel / renderPanel), not inline, so they no longer push the
+    // page down.
     if (st.phase === 'resolving') {
       var pct = st.lifters.length > 0 ? Math.round(st.resolvedCount / st.lifters.length * 100) : 0;
       html += '<div class="prog-wrap">';
@@ -1099,13 +1104,9 @@ function render() {
           html += '<div class="sum-stat"><span class="sum-num c-warn">' + unmatched + '</span><span class="sum-label">without OPL slug</span></div>';
         }
         html += '</div>';
-        if (st.genError) html += '<div class="err-box">' + esc(st.genError) + '</div>';
-        if (st.bundleCodes) {
-          // Codes live in the slide-out panel; this reopens it once closed.
-          html += '<button class="btn btn-primary btn-block" onclick="openCodesPanel()">Show Import Code' + (st.bundleCodes.length > 1 ? 's' : '') + '</button>';
-        } else {
-          html += '<button class="btn btn-primary btn-block" id="genbtn" onclick="doGenerate()">Generate Import Code</button>';
-        }
+        // Same panel as the header's Share button, so there is one place codes
+        // and links come from whether the meet has been saved yet or not.
+        html += '<button class="btn btn-primary btn-block" onclick="openSharePanel()">Share this meet</button>';
         html += '</div>';
       }
     }
@@ -1147,7 +1148,6 @@ function render() {
 function doReset() {
   st.phase = 'input';
   st.error = null;
-  st.genError = null;
   st.bundleCodes = null;
   st.saved = false;
   // Back to a blank import, so the next meet starts from the user's own
@@ -1165,7 +1165,6 @@ async function doFetch() {
 
   st.phase = 'fetching';
   st.error = null;
-  st.genError = null;
   st.bundleCodes = null;
   render();
 
@@ -1488,58 +1487,6 @@ async function doLookup(idx) {
     st.lookupError = err.message || String(err);
     if (btn) btn.disabled = false;
     renderPanel();
-  }
-}
-
-async function doGenerate() {
-  var btn = document.getElementById('genbtn');
-  if (btn) btn.disabled = true;
-  st.genError = null;
-
-  var label = meetLabel();
-  var flightMap = {};
-  for (var i = 0; i < st.lifters.length; i++) {
-    var lifter = st.lifters[i];
-    var r = st.resolved[i];
-    var f = lifter.flight || '?';
-    if (!flightMap[f]) flightMap[f] = [];
-    var athlete = { name: lifter.name };
-    if (r && r.oplSlug) athlete.slug = r.oplSlug;
-    flightMap[f].push(athlete);
-  }
-
-  var flights = Object.keys(flightMap).sort();
-  var MAX = 10;
-  var bundles = [];
-  for (var b = 0; b < flights.length; b += MAX) {
-    var chunk = flights.slice(b, b + MAX);
-    var squads = chunk.map(function(fl) {
-      return { name: label + ' - Flight ' + fl, athletes: flightMap[fl] };
-    });
-    bundles.push({ flights: chunk, squads: squads });
-  }
-
-  try {
-    var codes = [];
-    for (var bi = 0; bi < bundles.length; bi++) {
-      var bundle = bundles[bi];
-      var res = await fetch(BUNDLE_API + '/bundles', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ squads: bundle.squads })
-      });
-      var data = await res.json();
-      if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
-      codes.push({ code: data.code, flights: bundle.flights });
-    }
-    st.bundleCodes = codes;
-    st.saved = false;
-    render();
-    openCodesPanel();
-  } catch (err) {
-    st.genError = err.message || String(err);
-    if (btn) btn.disabled = false;
-    render();
   }
 }
 

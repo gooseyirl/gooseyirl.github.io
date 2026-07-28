@@ -233,6 +233,12 @@ tr:last-child td{border-bottom:none}
 .set-label{font-size:.75rem;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
 .panel-settings .src-ctrl{flex-wrap:wrap;max-width:100%}
 .panel-settings .hint{margin:0}
+/* The share panel's two destinations — a code for the app, a link for a
+   browser — as separate blocks with a rule between them. */
+.panel-share .set-group{width:100%;gap:10px;align-items:center}
+.panel-share .set-label{align-self:flex-start}
+.panel-share .set-group+.set-group{border-top:1px solid var(--border);padding-top:18px}
+.share-url{width:100%;font-family:ui-monospace,monospace;font-size:.75rem;color:var(--text-muted);word-break:break-all;text-align:center}
 .btn-copy{flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);border-radius:var(--rs);padding:7px 12px;font-size:.8rem;cursor:pointer;white-space:nowrap;transition:border-color .15s,color .15s}
 .btn-copy:hover{border-color:var(--accent);color:var(--accent)}
 .btn-copy.copied{border-color:var(--success);color:var(--success)}
