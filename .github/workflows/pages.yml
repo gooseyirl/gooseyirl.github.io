@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   pages: write
   id-token: write
 
@@ -14,12 +14,6 @@ permissions:
 concurrency:
   group: pages
   cancel-in-progress: true
-
-env:
-  # MAJOR.MINOR is kept in sync with the iOS/Android apps by hand.
-  # The patch number is the repo's total commit count, so it bumps on
-  # every commit automatically — no machine-local git hook required.
-  MAJOR_MINOR: "2.5"
 
 jobs:
   deploy:
@@ -30,36 +24,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          # Full history so `git rev-list --count` reflects every commit.
-          fetch-depth: 0
 
-      - name: Stamp app version
-        run: |
-          PATCH=$(git rev-list --count HEAD)
-          VERSION="${MAJOR_MINOR}.${PATCH}"
-          echo "Stamping version v$VERSION"
-          # Flexible match: replaces whatever version is currently shown,
-          # whether a token or a previously-stamped number.
-          sed -i -E "s|(id=\"appVersion\">v)[^<]*|\1${VERSION}|" myliftsquad-import.html
-          # Cache-bust the external assets so browsers fetch fresh CSS/JS on
-          # every deploy instead of serving a stale copy.
-          sed -i -E "s|(myliftsquad-import\.(css\|js)\?v=)[^\"']*|\1${VERSION}|g" myliftsquad-import.html
-
-      - name: Commit stamped version back to repo
-        # So the branch-based Pages builder (if still enabled) also serves a
-        # real version number instead of the un-stamped source. [skip ci]
-        # prevents this commit from re-triggering any workflow.
-        run: |
-          if git diff --quiet -- myliftsquad-import.html; then
-            echo "No version change to commit."
-          else
-            git config user.name  "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add myliftsquad-import.html
-            git commit -m "chore: stamp app version [skip ci]"
-            git push
-          fi
+      # Version stamping used to live here, for the MyLiftSquad import tool.
+      # The tool now ships from the my-lift-squad repo's worker, which stamps
+      # itself at deploy time (web/stamp-version.mjs).
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
